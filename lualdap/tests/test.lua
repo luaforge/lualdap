@@ -1,6 +1,6 @@
 #!/usr/local/bin/lua
 -- LuaLDAP test file.
--- $Id: test.lua,v 1.1 2003-06-15 11:56:00 tomas Exp $
+-- $Id: test.lua,v 1.2 2003-06-16 10:38:15 tomas Exp $
 
 function print_attrs (attrs)
 	io.write (string.format (" [dn] : %s\n", attrs.dn))
@@ -45,13 +45,13 @@ assert (pcall (ld.close, ld) == false)
 local ld = assert (lualdap.open_simple (hostname, who, password))
 
 -- search
---for msg, attrs in ld:search_attribs (base, "subtree", filter, attribs) do
-	--print_attrs (attrs)
---end
---print ("search ok")
+for msg, attrs in ld:search_attribs (base, "subtree", filter, attribs) do
+	print_attrs (attrs)
+end
+print ("search ok")
 
 -- compare
---print("compare", ld:compare ("videoID=676DE,ou=video,dc=teste,dc=br", "videoTitulo", "Tecnologias de Video Digital"))
+print("compare", ld:compare ("videoID=676DE,ou=video,dc=teste,dc=br", "videoTitulo", "Tecnologias de Video Digital"))
 
 -- modify
 print("modify", ld:modify ("videoID=676DE,ou=video,dc=teste,dc=br", {
