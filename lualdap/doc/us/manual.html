@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.6 2003-08-27 17:08:51 tomas Exp $>
+<!$Id: manual.html,v 1.7 2003-09-01 16:13:56 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -23,8 +23,12 @@ ul { list-style-type: disc };
 
 <center><small>
 <a href="index.html">home</a> &middot;
+<a href="#attributes">attributes</a> &middot;
+<a href="#dn">DN</a> &middot;
+<a href="#initialization_functions">initialization</a> &middot;
 <a href="#connection_object">connection</a> &middot;
-<a href="#examples">example</a>
+<a href="#examples">example</a> &middot;
+<a href="#related_docs">related docs</a>
 </small></center>
 <p>
 
@@ -72,9 +76,9 @@ It is formed by the concatenation of the relative distinguished name (RDN)
 of the entry with the distinguished name of its parent.
 LuaLDAP will always use a string to represent the DN of any entry.
 <p>
-A more precise definition can be found on the LDAP documentation
-such as <a href="http://www.ietf.org/rfc/rfc3377.txt">LDAPv3 Technical
-Specification</a>.
+A more precise definition can be found on the LDAP documentation.
+You can find a list of some of these files in section
+<a href="#related_docs">Related documentation</a>.
 
 <a name="initialization_functions"></a>
 <h2>Initialization functions</h2>
@@ -91,7 +95,7 @@ character."</em>
 The argument <tt>who</tt> should be the <a href="#dn">distinguished name</a>
 of the entry that has the password to be checked against the third argument,
 <tt>password</tt>.
-The optional argument <tt>usetla</tt> is a boolean flag indicating if
+The optional argument <tt>usetls</tt> is a boolean flag indicating if
 Transport Layer Security (TLS) should be used.
 
 </ul>
@@ -105,15 +109,19 @@ A connection object offers methods that implement the LDAP operations.
 Almost all of them need a <a href="#dn">distinguished name</a> to
 identify the entry on which the operation will be executed.
 <p>
-All methods return <tt>true</tt> indicating success of the operation;
+These methods execute asynchronous operations and return a function
+that should be called to get the result(s).
+These functions will return <tt>true</tt> indicating success of the operation;
 the only exception is <a href="#conn_compare">compare</a> that can return
-<tt>false</tt>.
+<tt>false</tt> (the result of the comparison) on a success operation.
+<p>
 There are two kinds of errors:
 <em>API errors</em>, such as wrong parameters, absent connection etc.; and
 <em>LDAP errors</em>, such as mal-formed DN, unknown attribute etc.
 API errors will raise a Lua error,
-while LDAP errors will be identified as a <tt>nil</tt> value returned,
-followed by an error message (provided by the OpenLDAP client).
+while LDAP errors will be reported by the function/method
+returning <tt>nil</tt> followed by the error message provided by
+the OpenLDAP client.
 <p>
 A connection object can be created by calling one of the
 <a href="#initialization_functions">Initialization functions</a>.
@@ -192,7 +200,7 @@ require "lualdap"
 
 ld = assert (lualdap.open_simple ("ldap.server", "mydn=manoeljoaquim,ou=people,dc=ldap,dc=world", "mysecurepassword"))
 
-for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" } do
+for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" }() do
 	io.write (string.format ("\t[%s]\n", dn)
 	for name, values in pairs (attribs) do
 		io.write ("["..name.."] : ")
@@ -215,17 +223,33 @@ ld:add ("mydn=newuser,ou=people,dc=ldap,dc=world", {
 	abc = "qwerty",
 	tel = { "123456758", "98765432", },
 	givenName = "New User",
-}
+}()
 
 ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
 	{ '=', givenName = "New", cn = "New", sn = "User", },
 	{ '+', o = { "University", "College", }, mail = "newuser@university.edu", },
 	{ '-', abc = true, tel = "123456758", },
 	{ '+', tel = "13579113", },
-}
+}()
+
+ld:delete ("mydn=newuser,ou=people,dc=ldp,dc=world")()
 
 </pre>
 </blockquote>
+
+
+<a name="related_docs"></a>
+<h2>Related documentation</h2>
+
+Here is a list of related documentation:
+<ul>
+  <li> <a href="http://www.ietf.org/rfc/rfc2251.txt">Lightweight Directory
+Access Protocol (v3)</a>
+  <li> <a href="http://www.ietf.org/rfc/rfc3377.txt">LDAPv3 Technical
+Specification</a>
+  <li> <a href="http://www.ietf.org/rfc/rfc2254.txt">The String Representation
+of LDAP Search Filters (RFC 2254)</a>
+</ul>
 
 
 <a name="contents"></a>
@@ -247,6 +271,7 @@ ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
     <li> <a href="#conn_search">search</a>
   </ul>
 <li> <a href="#examples">Example</a>
+<li> <a href="#related_docs">Related documentation</a>
 </ul>
 </p>
 
@@ -254,15 +279,19 @@ ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
 <p>
 <center><small>
 <a href="index.html">home</a> &middot;
+<a href="#attributes">attributes</a> &middot;
+<a href="#dn">DN</a> &middot;
+<a href="#initialization_functions">initialization</a> &middot;
 <a href="#connection_object">connection</a> &middot;
-<a href="#examples">example</a>
+<a href="#examples">example</a> &middot;
+<a href="#related_docs">related docs</a>
 </small></center>
 <p>
 
 <hr>
 <small>
 Last modified on
-Mon Aug 25 00:45:01 BRT 2003
+Mon Sep  1 15:54:23 BRT 2003
 </small>
 
 </body>
