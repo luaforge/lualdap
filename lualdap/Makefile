@@ -1,9 +1,10 @@
 # System's libraries directory (where binary libraries are installed)
 LIB_DIR= /usr/lib
+# OS dependent
 #LIB_EXT= .so
 LIB_EXT= .dylib
-#LIB_OPTION= -shared
-LIB_OPTION= -dynamiclib
+#LIB_OPTION= -shared #for Linux
+LIB_OPTION= -dynamiclib #for MacOS X
 
 # On FreeBSD systems, the following line should be commented
 DLLIB= -ldl
@@ -21,6 +22,7 @@ T= lualdap
 V= 1.0
 VERSION= $Vb
 PKG= lualdap-$(VERSION)
+DIST_DIR= $(PKG)
 TAR_FILE= $(PKG).tar.gz
 ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
@@ -35,12 +37,14 @@ OBJS= lualdap.o compat-5.1.o
 LIB= lib$T$(VERSION).a
 LIBNAME= lib$T$(VERSION)$(LIB_EXT)
 
-dist:
-	mkdir $(PKG);
-	cp $(SRCS) $(PKG);
-	tar -czf $(TAR_FILE) $(PKG);
-	zip -lq $(ZIP_FILE) $(PKG)/*
-	rm -rf $(PKG)
+dist: dist_dir
+	tar -czf $(TAR_FILE) $(DIST_DIR);
+	zip -lq $(ZIP_FILE) $(DIST_DIR)/*
+	rm -rf $(DIST_DIR)
+
+dist_dir:
+	mkdir $(DIST_DIR);
+	cp $(SRCS) $(DIST_DIR);
 
 lib: $(LIB)
  $(LIB): $(OBJS)
