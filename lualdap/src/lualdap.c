@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.14 2003-08-24 16:33:53 tomas Exp $
+** $Id: lualdap.c,v 1.15 2003-08-25 00:56:04 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -21,6 +21,7 @@
 #define LUALDAP_MOD_ADD (LDAP_MOD_ADD | LDAP_MOD_BVALUES)
 #define LUALDAP_MOD_DEL (LDAP_MOD_DELETE | LDAP_MOD_BVALUES)
 #define LUALDAP_MOD_REP (LDAP_MOD_REPLACE | LDAP_MOD_BVALUES)
+#define LUALDAP_NO_OP   0
 
 /* Maximum number of attributes manipulated in an operation */
 #ifndef LUALDAP_MAX_ATTRS
@@ -94,6 +95,7 @@ static conn_data *getconnection (lua_State *L) {
 ** Get a search object from the first upvalue position.
 */
 static search_data *getsearch (lua_State *L) {
+	/* don't need to check upvalue's integrity */
 	search_data *search = (search_data *)lua_touserdata (L, lua_upvalueindex (1));
 	luaL_argcheck (L,!search->closed,1,LUALDAP_PREFIX"LDAP search is closed");
 	return search;
@@ -110,7 +112,15 @@ static void lualdap_setmeta (lua_State *L, char *name) {
 
 
 /*
-** Get the field named name of the table at position 2.
+** Error on option.
+*/
+static int option_error (lua_State *L, const char *name, const char *type) {
+	return luaL_error (L, LUALDAP_PREFIX"invalid value on option `%s': %s expected, got %s", name, type, lua_typename (L, lua_type (L, -1)));
+}
+
+
+/*
+** Get the field called name of the table at position 2.
 */
 static void strgettable (lua_State *L, char *name) {
 	lua_pushstring (L, name);
@@ -119,16 +129,8 @@ static void strgettable (lua_State *L, char *name) {
 
 
 /*
-** Build a generic error message.
-*/
-static int error_message (lua_State *L, const char *name, const char *type) {
-	return luaL_error (L, LUALDAP_PREFIX"invalid value on option `%s': %s expected, got %s", name, type, lua_typename (L, lua_type (L, -1)));
-}
-
-
-/*
 ** Get the field named name as a string.
-** The table should be at position 2.
+** The table MUST be at position 2.
 */
 static const char *strtabparam (lua_State *L, char *name, char *def) {
 	strgettable (L, name);
@@ -137,7 +139,7 @@ static const char *strtabparam (lua_State *L, char *name, char *def) {
 	else {
 		const char *s = lua_tostring (L, -1);
 		if (!s) {
-			error_message (L, name, "string");
+			option_error (L, name, "string");
 			return NULL;
 		}
 		else
@@ -148,7 +150,7 @@ static const char *strtabparam (lua_State *L, char *name, char *def) {
 
 /*
 ** Get the field named name as an integer.
-** The table should be at position 2.
+** The table MUST be at position 2.
 */
 static long longtabparam (lua_State *L, char *name, int def) {
 	strgettable (L, name);
@@ -157,7 +159,7 @@ static long longtabparam (lua_State *L, char *name, int def) {
 	else {
 		long n = (long)lua_tonumber (L, -1);
 		if (n == 0 && !lua_isnumber (L, -1))
-			return error_message (L, name, "number");
+			return option_error (L, name, "number");
 		else
 			return n;
 	}
@@ -166,23 +168,32 @@ static long longtabparam (lua_State *L, char *name, int def) {
 
 /*
 ** Get the field named name as a boolean.
-** The table should be at position 2.
+** The table MUST be at position 2.
 */
 static int booltabparam (lua_State *L, char *name, int def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
 	else if (!lua_isboolean (L, -1))
-		return error_message (L, name, "boolean");
+		return option_error (L, name, "boolean");
 	else
 		return lua_toboolean (L, -1);
 }
 
 
 /*
+** Error on attribute's value.
+*/
+static void value_error (lua_State *L, const char *name) {
+	luaL_error (L, LUALDAP_PREFIX"invalid value of attribute `%s' (%s)",
+		name, lua_typename (L, lua_type (L, -1)));
+}
+
+
+/*
 ** Initialize attributes structure.
 */
-static void init_attrs (attrs_data *attrs) {
+static void A_init (attrs_data *attrs) {
 	attrs->ai = 0;
 	attrs->attrs[0] = NULL;
 	attrs->vi = 0;
@@ -192,78 +203,101 @@ static void init_attrs (attrs_data *attrs) {
 
 
 /*
-** Copy a string on top of the stack to the next berval array position.
+** Store a string on the attributes structure.
+** Increment the bvals counter.
 */
-static void str2bvals (lua_State *L, int str, attrs_data *attrs) {
-/* colocar os testes de limites dos arrays */
-	attrs->bvals[attrs->bi].bv_len = lua_strlen (L, str);
-	attrs->bvals[attrs->bi].bv_val = (char *)lua_tostring (L, str);
-	attrs->bi++;
+static BerValue *A_setbval (lua_State *L, attrs_data *a, const char *n) {
+	BerValue *ret = &(a->bvals[a->bi]);
+	if (a->bi >= LUALDAP_MAX_VALUES) {
+		luaL_error (L, LUALDAP_PREFIX"too many values");
+		return NULL;
+	} else if (!lua_isstring (L, -1)) {
+		value_error (L, n);
+		return NULL;
+	}
+	a->bvals[a->bi].bv_len = lua_strlen (L, -1);
+	a->bvals[a->bi].bv_val = (char *)lua_tostring (L, -1);
+	a->bi++;
+	return ret;
 }
 
 
 /*
-** Store a pointer to new berval.
+** Store a pointer to the value on top of the stack on the attributes structure.
 */
-static void new_value (attrs_data *attrs) {
-	attrs->values[attrs->vi] = &attrs->bvals[attrs->bi];
-	attrs->vi++;
+static BerValue **A_setval (lua_State *L, attrs_data *a, const char *n) {
+	BerValue **ret = &(a->values[a->vi]);
+	if (a->vi >= LUALDAP_ARRAY_VALUES_SIZE) {
+		luaL_error (L, LUALDAP_PREFIX"too many values");
+		return NULL;
+	}
+	a->values[a->vi] = A_setbval (L, a, n);
+	a->vi++;
+	return ret;
 }
 
 
 /*
-** Store a NULL pointer to end attributes list.
+** Store a NULL pointer on the attributes structure.
 */
-static void last_value (attrs_data *attrs) {
-	attrs->values[attrs->vi] = NULL;
-	attrs->vi++;
+static BerValue **A_nullval (lua_State *L, attrs_data *a) {
+	BerValue **ret = &(a->values[a->vi]);
+	if (a->vi >= LUALDAP_ARRAY_VALUES_SIZE) {
+		luaL_error (L, LUALDAP_PREFIX"too many values");
+		return NULL;
+	}
+	a->values[a->vi] = NULL;
+	a->vi++;
+	return ret;
 }
 
 
 /*
-** Store a NULL pointer as mod_val, representing a null attribute.
-** This function assumes that the 'ai' counter was not updated yet.
+** Store the value of an attribute.
+** Valid values are:
+**	true => no values;
+**	string => one value; or
+**	table of strings => many values.
 */
-static void null_value (attrs_data *attrs) {
-	attrs->mods[attrs->ai].mod_bvalues = NULL;
-}
-
-
-/*
-** Create a NULL-terminated array of berval strings from a Lua table.
-** It also works for one string (instead of a table with a unique value).
-** @param tab stack index of the table (or string).
-** @return NULL-terminated array of berval strings.
-*/
-static int table2bervalarray (lua_State *L, int tab, attrs_data *attrs) {
-	if (lua_isstring (L, tab)) {
-		if (LUALDAP_ARRAY_VALUES_SIZE < (attrs->vi + 1) ||
-				LUALDAP_MAX_VALUES < attrs->bi)
-			return faildirect (L, LUALDAP_PREFIX"too many attributes/values");
-		/* store pointer to new berval */
-		new_value (attrs);
-		str2bvals (L, -1, attrs);
-	} else if (lua_isboolean (L, tab)) {
-		null_value (attrs);
-	} else if (lua_istable (L, tab)) {
+static BerValue **A_tab2val (lua_State *L, attrs_data *a, const char *name) {
+	int tab = lua_gettop (L);
+	BerValue **ret = &(a->values[a->vi]);
+	if (lua_isboolean (L, tab) && (lua_toboolean (L, tab) == 1)) /* true */
+		return NULL;
+	else if (lua_isstring (L, tab)) /* string */
+		A_setval (L, a, name);
+	else if (lua_istable (L, tab)) { /* list of strings */
 		int i;
 		int n = luaL_getn (L, tab);
-		if (LUALDAP_ARRAY_VALUES_SIZE < (attrs->vi + n + 1) ||
-				LUALDAP_MAX_VALUES < (attrs->bi + n))
-			return faildirect (L, LUALDAP_PREFIX"too many attributes/values");
 		for (i = 1; i <= n; i++) {
-			new_value (attrs);
 			lua_rawgeti (L, tab, i); /* push table element */
-			if (lua_isstring (L, -1))
-				str2bvals (L, -1, attrs);
-			else
-				return luaL_error (L, LUALDAP_PREFIX"invalid value (string expected, got %s)", lua_typename(L, lua_type(L, -1)));
+			A_setval (L, a, name);
 		}
 		lua_pop (L, n);
-	} else
-		return luaL_error (L, LUALDAP_PREFIX"invalid argument #%d", tab);
-	last_value (attrs);
-	return 0;
+	} else {
+		value_error (L, name);
+		return NULL;
+	}
+	A_nullval (L, a);
+	return ret;
+}
+
+
+/*
+** Set a modification value (which MUST be on top of the stack).
+** The value is poped from the stack.
+*/
+static void A_setmod (lua_State *L, attrs_data *a, int op, const char *name) {
+	if (a->ai >= LUALDAP_MAX_ATTRS) {
+		luaL_error (L, LUALDAP_PREFIX"too many attributes");
+		return;
+	}
+	a->mods[a->ai].mod_op = op;
+	a->mods[a->ai].mod_type = (char *)name;
+	a->mods[a->ai].mod_bvalues = A_tab2val (L, a, name);
+	/*lua_pop (L, 1);*/
+	a->attrs[a->ai] = &a->mods[a->ai];
+	a->ai++;
 }
 
 
@@ -271,32 +305,30 @@ static int table2bervalarray (lua_State *L, int tab, attrs_data *attrs) {
 ** Convert a Lua table into an array of modifications.
 ** An array of modifications is a NULL-terminated array of LDAPMod's.
 */
-static int table2attrarray (lua_State *L, int tab, int op, attrs_data *attrs) {
+static void A_tab2mod (lua_State *L, attrs_data *a, int tab, int op) {
 	lua_pushnil (L); /* first key for lua_next */
 	while (lua_next (L, tab) != 0) {
 		/* attribute must be a string and not a number */
-		if ((!lua_isnumber (L, -2)) && (lua_isstring (L, -2))) {
-			if (LUALDAP_MAX_ATTRS < attrs->ai)
-				return faildirect (L, LUALDAP_PREFIX"too many attributes/values");
-			/* fill in mods element */
-			attrs->mods[attrs->ai].mod_op = op;
-			attrs->mods[attrs->ai].mod_type = (char *)lua_tostring (L, -2);
-			attrs->mods[attrs->ai].mod_bvalues = &attrs->values[attrs->vi];
-			/* fill in values and bvals element(s) */
-			if (table2bervalarray (L, lua_gettop(L), attrs))
-				return 2;
-			/* fill in attrs element (to point to above mods) */
-			attrs->attrs[attrs->ai] = &attrs->mods[attrs->ai];
-			attrs->ai++;
-		}
-		lua_pop (L, 1); /* pop value and leave last key on top of the stack */
+		if ((!lua_isnumber (L, -2)) && (lua_isstring (L, -2)))
+			A_setmod (L, a, op, lua_tostring (L, -2));
+		/* pop value and leave last key on the stack as next key for lua_next */
+		lua_pop (L, 1);
 	}
-/* retirar isto daqui. colocar todos os incrementos de contadores e atribuicoes em funcoes separados. */
-	attrs->attrs[attrs->ai] = NULL;
-	return 0;
 }
 
-/* !!!!!!! */
+
+/*
+** Terminate the array of attributes.
+*/
+static void A_lastattr (lua_State *L, attrs_data *a) {
+	if (a->ai >= LUALDAP_MAX_ATTRS) {
+		luaL_error (L, LUALDAP_PREFIX"too many attributes");
+		return;
+	}
+	a->attrs[a->ai] = NULL;
+	a->ai++;
+}
+
 
 /*
 ** Copy a string or a table of strings from Lua to a NULL-terminated array
@@ -305,7 +337,7 @@ static int table2attrarray (lua_State *L, int tab, int op, attrs_data *attrs) {
 static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 	if (lua_isstring (L, tab)) {
 		if (limit < 2)
-			return faildirect (L, LUALDAP_PREFIX"too many arguments");
+			return luaL_error (L, LUALDAP_PREFIX"too many arguments");
 		array[0] = (char *)lua_tostring (L, tab);
 		array[1] = NULL;
 	} else if (lua_istable (L, tab)) {
@@ -361,10 +393,10 @@ static int lualdap_add (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	attrs_data attrs;
-	init_attrs (&attrs);
+	A_init (&attrs);
 	if (lua_istable (L, 3))
-		if (table2attrarray(L, 3, LUALDAP_MOD_ADD, &attrs))
-			return 2;
+		A_tab2mod (L, &attrs, 3, LUALDAP_MOD_ADD);
+	A_lastattr (L, &attrs);
 	int rc = ldap_add_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
 	if (rc == LDAP_SUCCESS) {
 		lua_pushboolean (L, 1);
@@ -388,8 +420,6 @@ static int lualdap_compare (lua_State *L) {
 	const char *attr = luaL_check_string (L, 3);
 	BerValue bvalue;
 	int rc;
-
-	/* Perform the comparison operation */
 	bvalue.bv_val = (char *)luaL_check_string (L, 4);
 	bvalue.bv_len = lua_strlen (L, 4);
 	rc = ldap_compare_ext_s (conn->ld, dn, attr, &bvalue, NULL, NULL);
@@ -426,7 +456,8 @@ static int lualdap_delete (lua_State *L) {
 ** Convert a string into an internal LDAP_MOD operation code.
 */
 static int op2code (const char *s) {
-/* testar s == NULL */
+	if (!s)
+		return LUALDAP_NO_OP;
 	switch (*s) {
 		case '+':
 			return LUALDAP_MOD_ADD;
@@ -435,7 +466,7 @@ static int op2code (const char *s) {
 		case '=':
 			return LUALDAP_MOD_REP;
 		default:
-			return 0;
+			return LUALDAP_NO_OP;
 	}
 }
 
@@ -444,41 +475,41 @@ static int op2code (const char *s) {
 ** Modify an entry.
 ** @param #1 LDAP connection.
 ** @param #2 String with entry's DN.
-** @param #3 Table with modifications to apply.
-** @return Boolean.
+** @param #3, #4... Tables with modifications to apply.
+** @return True on success or nil, error message otherwise.
 */
 static int lualdap_modify (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	attrs_data attrs;
-	int param = 3;
+	int rc, param = 3;
+	A_init (&attrs);
 	while (lua_istable (L, param)) {
-		int rc, op;
-		init_attrs (&attrs);
+		int op;
 		/* get operation ('+','-','=' operations allowed) */
 		lua_rawgeti (L, param, 1);
-		if (lua_isstring (L, -1))
-			op = op2code (lua_tostring (L, -1));
-		else
-			op = 0;
-		if (!op)
+		op = op2code (lua_tostring (L, -1));
+		if (op == LUALDAP_NO_OP)
 			return luaL_error (L, LUALDAP_PREFIX"forgotten operation on argument #%d", param);
-		if (table2attrarray (L, param, op, &attrs))
-			return 2;
-		rc = ldap_modify_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
-		if (rc != LDAP_SUCCESS)
-			return luaL_error (L,
-				LUALDAP_PREFIX"error while modification set #%d: %s",
-				param-2, ldap_err2string (rc));
+		/* get array of attributes and values */
+		A_tab2mod (L, &attrs, param, op);
 		param++;
 	}
-	lua_pushboolean (L, 1);
-	return 1;
+	A_lastattr (L, &attrs);
+	rc = ldap_modify_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
+	if (rc != LDAP_SUCCESS)
+		return faildirect (L, ldap_err2string (rc));
+	else {
+		lua_pushboolean (L, 1);
+		return 1;
+	}
 }
 
 
 /*
 ** Push an attribute value (or a table of values) on top of the stack.
+** @param L lua_State.
+** @param ld LDAP Connection.
 ** @param entry Current entry.
 ** @param attr Name of entry's attribute to get values from.
 ** @return 1 in case of success.
@@ -486,7 +517,7 @@ static int lualdap_modify (lua_State *L) {
 static int pushvalues (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 	int i, n;
 	BerValue **vals = ldap_get_values_len (ld, entry, attr);
-	if ((n = ldap_count_values_len (vals)) == 1)
+	if ((n = ldap_count_values_len (vals)) == 1) /* just one value */
 		lua_pushlstring (L, vals[0]->bv_val, vals[0]->bv_len);
 	else { /* Multiple values */
 		lua_newtable (L);
@@ -497,20 +528,6 @@ static int pushvalues (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 	}
 	ldap_value_free_len (vals);
 	return 1;
-}
-
-
-/*
-** Store entry's distinguished name at the given table.
-** @param entry Current entry.
-** @param tab Absolute stack index of the table.
-*/
-static void setdn (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
-	char *dn = ldap_get_dn (ld, entry);
-	lua_pushstring (L, "dn");
-	lua_pushstring (L, dn);
-	lua_rawset (L, tab);
-	ldap_memfree (dn);
 }
 
 
@@ -596,9 +613,8 @@ static int next_message (lua_State *L) {
 /*
 ** Convert a string to one of the possible scopes of the search.
 */
-static int string2scope (const char *s) {
-/* aceitar somente a string vazia ou NULL como default e dar erro nos outros casos */
-	if (!s)
+static int string2scope (lua_State *L, const char *s) {
+	if ((s == NULL) || (*s == '\0'))
 		return LDAP_SCOPE_DEFAULT;
 	switch (*s) {
 		case 'b':
@@ -608,7 +624,7 @@ static int string2scope (const char *s) {
 		case 's':
 			return LDAP_SCOPE_SUBTREE;
 		default:
-			return LDAP_SCOPE_DEFAULT;
+			return luaL_error (L, LUALDAP_PREFIX"invalid search scope `%s'", s);
 	}
 }
 
@@ -677,7 +693,7 @@ static int lualdap_search (lua_State *L) {
 	attrsonly = booltabparam (L, "attrsonly", 0);
 	base = strtabparam (L, "base", NULL);
 	filter = strtabparam (L, "filter", NULL);
-	scope = string2scope (strtabparam (L, "scope", NULL));
+	scope = string2scope (L, strtabparam (L, "scope", NULL));
 	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
 /* trocar o timeout para um parametro so' */
 	st.tv_sec = longtabparam (L, "timeoutsec", 0);
@@ -782,7 +798,6 @@ static int lualdap_createmeta (lua_State *L) {
 */
 static int lualdap_open_simple (lua_State *L) {
 	const char *host = luaL_check_string (L, 1);
-	/*const char *who = luaL_check_string (L, 2);*/
 	const char *who = luaL_optstring (L, 2, NULL);
 	const char *password = luaL_optstring (L, 3, NULL);
 	conn_data *conn = (conn_data *)lua_newuserdata (L, sizeof(conn_data));
