@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.17 2003-08-26 16:44:13 tomas Exp $
+** $Id: lualdap.c,v 1.18 2003-08-27 16:36:11 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -407,11 +407,12 @@ static int lualdap_add (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	attrs_data attrs;
+	int rc;
 	A_init (&attrs);
 	if (lua_istable (L, 3))
 		A_tab2mod (L, &attrs, 3, LUALDAP_MOD_ADD);
 	A_lastattr (L, &attrs);
-	int rc = ldap_add_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
+	rc = ldap_add_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
 	if (rc == LDAP_SUCCESS) {
 		lua_pushboolean (L, 1);
 		return 1;
