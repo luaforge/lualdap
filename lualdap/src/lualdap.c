@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.19 2003-08-29 14:24:53 tomas Exp $
+** $Id: lualdap.c,v 1.20 2003-09-01 18:55:57 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -551,7 +551,7 @@ static int lualdap_modify (lua_State *L) {
 		param++;
 	}
 	A_lastattr (L, &attrs);
-	rc = ldap_modify_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
+	rc = ldap_modify_ext (conn->ld, dn, attrs.attrs, NULL, NULL, &msgid);
 	return create_future (L, rc, 1, msgid, LDAP_RES_MODIFY);
 }
 
@@ -582,7 +582,10 @@ static int lualdap_rename (lua_State *L) {
 static int push_values (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 	int i, n;
 	BerValue **vals = ldap_get_values_len (ld, entry, attr);
-	if ((n = ldap_count_values_len (vals)) == 1) /* just one value */
+	n = ldap_count_values_len (vals);
+	if (n == 0) /* no values */
+		lua_pushboolean (L, 1);
+	else if (n == 1) /* just one value */
 		lua_pushlstring (L, vals[0]->bv_val, vals[0]->bv_len);
 	else { /* Multiple values */
 		lua_newtable (L);
