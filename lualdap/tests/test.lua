@@ -6,10 +6,11 @@
 -- renamed and deleted at the end.
 --
 -- See Copyright Notice in license.html
--- $Id: test.lua,v 1.11 2004-05-31 11:00:13 tomas Exp $
+-- $Id: test.lua,v 1.12 2005-02-23 22:39:26 tomas Exp $
 ---------------------------------------------------------------------
 
-DN_PAT = "^([^,=]+)%=([^,]+)%,(.*)$"
+--
+DN_PAT = "^([^,=]+)%=([^,]+)%,?(.*)$"
 
 ---------------------------------------------------------------------
 -- Print attributes.
@@ -112,6 +113,9 @@ function basic_test ()
 end
 
 
+---------------------------------------------------------------------
+-- checks return value which should be a function AND also its return value.
+---------------------------------------------------------------------
 function check_future (ret, method, ...)
 io.write('.')
 	local ok, f = pcall (method, unpack (arg))
@@ -120,11 +124,14 @@ io.write('.')
 	assert2 (ret, f())
 end
 
+
 ---------------------------------------------------------------------
 -- checking compare operation.
 ---------------------------------------------------------------------
 function compare_test ()
 	local _,_,rdn_name,rdn_value = string.find (BASE, DN_PAT)
+	assert (type(rdn_name) == "string", "could not extract RDN name")
+	assert (type(rdn_value) == "string", "could not extract RDN value")
 	-- comparing against the correct value.
 	check_future (true, LD.compare, LD, BASE, rdn_name, rdn_value)
 	-- comparing against a wrong value.
@@ -144,11 +151,12 @@ end
 -- checking basic search operation.
 ---------------------------------------------------------------------
 function search_test_1 ()
+	local _,_,rdn = string.find (WHO, "^([^,]+)%,.*$")
 	local iter = LD:search {
 		base = BASE,
 		scope = "onelevel",
 		sizelimit = 1,
-		filter = "(uid=pedromaia)",
+		filter = "("..rdn..")",
 	}
 	assert2 ("function", type(iter))
 	collectgarbage()
@@ -164,7 +172,7 @@ function search_test_1 ()
 		base = BASE,
 		scope = "onelevel",
 		sizelimit = 1,
-		filter = "(uid=pedromaia)",
+		filter = "("..rdn..")",
 	}()
 	collectgarbage()
 	assert2 ("string", type(DN))
@@ -237,11 +245,12 @@ end
 -- checking advanced search operation.
 ---------------------------------------------------------------------
 function search_test_2 ()
+	local _,_,rdn = string.find (WHO, "^([^,]+)%,.*$")
 	local iter = LD:search {
 		base = BASE,
 		scope = "onelevel",
 		sizelimit = 1,
-		filter = "(uid=pedromaia)",
+		filter = "("..rdn..")",
 	}
 	assert2 ("function", type(iter))
 	collectgarbage ()

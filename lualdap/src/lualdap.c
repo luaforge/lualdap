@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.37 2005-01-13 18:02:40 tuler Exp $
+** $Id: lualdap.c,v 1.38 2005-02-23 22:39:25 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -397,7 +397,7 @@ static int result_message (lua_State *L) {
 		char *mdn, *msg;
 		rc = ldap_parse_result (conn->ld, res, &err, &mdn, &msg, NULL, NULL, 1);
 		if (rc != LDAP_SUCCESS)
-			return faildirect (L, ldap_err2string (err));
+			return faildirect (L, ldap_err2string (rc));
 		switch (err) {
 			case LDAP_SUCCESS:
 			case LDAP_COMPARE_TRUE:
@@ -408,9 +408,11 @@ static int result_message (lua_State *L) {
 				break;
 			default:
 				lua_pushnil (L);
-				lua_pushstring (L, LUALDAP_PREFIX);
+				lua_pushliteral (L, LUALDAP_PREFIX);
 				lua_pushstring (L, msg);
-				lua_concat (L, 2);
+				lua_pushliteral (L, " ");
+				lua_pushstring (L, ldap_err2string(err));
+				lua_concat (L, 3);
 				ret = 2;
 		}
 		ldap_memfree (mdn);
