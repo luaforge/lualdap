@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.3 2003-08-15 16:43:10 tomas Exp $>
+<!$Id: manual.html,v 1.4 2003-08-18 16:25:04 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -146,9 +146,9 @@ The parameters are described below:
   <li> <b><tt>timeoutsec</tt></b> The timeout in seconds (default is no timeout).  This number will be combined with <tt>timeoutsec</tt>; if both are zero, no timeout will be used.
 </ul>
 The search method will return a <i>search iterator</i> which is a function
-that should be called with just the connection.
-A search iterator is used to get the search result and will return
-the string representing a <a href="#dn">distinguished name</a> and
+that should be called with no arguments.
+The search iterator is used to get the search result and will return
+a string representing the <a href="#dn">distinguished name</a> and
 a <a href="#attributes">table of attributes</a> as returned by the
 search request.
 
@@ -216,7 +216,7 @@ end
 <hr>
 <small>
 Last modified on
-Fri Aug 15 16:31:31 BRT 2003
+Mon Aug 18 13:57:17 BRT 2003
 </small>
 
 </body>
