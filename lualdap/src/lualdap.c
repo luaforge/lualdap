@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.20 2003-09-01 18:55:57 tomas Exp $
+** $Id: lualdap.c,v 1.21 2003-09-02 17:01:29 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -643,6 +643,10 @@ static int next_message (lua_State *L) {
 	int rc;
 	int ret = 1;
 
+	if (search->msgid == -1) { /* no more messages */
+		lua_pushnil (L);
+		return 1;
+	}
 	lua_rawgeti (L, LUA_REGISTRYINDEX, search->conn);
 	conn = (conn_data *)lua_touserdata (L, -1); /* get connection */
 
@@ -651,9 +655,10 @@ static int next_message (lua_State *L) {
 		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
 	else if (rc == -1)
 		return faildirect (L, LUALDAP_PREFIX"result error");
-	else if (rc == LDAP_RES_SEARCH_RESULT) /* last message => nil */
+	else if (rc == LDAP_RES_SEARCH_RESULT) { /* last message => nil */
+		search->msgid = -1;
 		lua_pushnil (L);
-	else {
+	} else {
 		LDAPMessage *msg = ldap_first_message (conn->ld, res);
 		switch (ldap_msgtype (msg)) {
 			case LDAP_RES_SEARCH_ENTRY: {

@@ -1,7 +1,7 @@
 #!/usr/local/bin/lua
 ---------------------------------------------------------------------
 -- LuaLDAP test file.
--- $Id: test.lua,v 1.6 2003-09-01 18:59:30 tomas Exp $
+-- $Id: test.lua,v 1.7 2003-09-02 17:01:29 tomas Exp $
 -- This test will create a copy of an existing entry on the
 -- directory to work on.  This new entry will be modified,
 -- renamed and deleted at the end.
@@ -104,7 +104,7 @@ function basic_test ()
 	-- trying to connect to an invalid host.
 	assert2 (nil, lualdap.open_simple ("unknown-server"), "this should be an error")
 	-- reopen the connection.
-	LD = assert (lualdap.open_simple (HOSTNAME, WHO, PASSWORD, true))
+	LD = CONN_OK (lualdap.open_simple (HOSTNAME, WHO, PASSWORD, true))
 	CLOSED_LD = ld
 end
 
@@ -224,15 +224,27 @@ function search_test_2 ()
 	-- checking filter.
 	local _,_, rdn_name, rdn_value, parent_dn = string.find (NEW_DN, DN_PAT)
 	local filter = string.format ("(%s=%s)", rdn_name, rdn_value)
-	assert (count{ base = BASE, scope = "subtree", filter = filter, } == 1)
+	assert (count { base = BASE, scope = "subtree", filter = filter, } == 1)
 	-- checking sizelimit.
-	assert (count{ base = BASE, scope = "subtree", sizelimit = 1, } == 1)
+	assert (count { base = BASE, scope = "subtree", sizelimit = 1, } == 1)
 	-- checking attrsonly parameter.
 	for dn, entry in LD:search { base = BASE, scope = "subtree", attrsonly = true, } do
 		for attr, value in pairs (entry) do
 			assert (value == true, "attrsonly failed")
 		end
 	end
+	-- checking reuse of search object.
+	local iter = assert (LD:search { base = BASE, scope = "base", })
+	assert (type(iter) == "function")
+	local dn, e1 = iter()
+	assert (type(dn) == "string")
+	assert (type(e1) == "table")
+	dn, e1 = iter()
+	assert (type(dn) == "nil")
+	assert (type(e1) == "nil")
+	dn, e1 = iter()
+	assert (type(dn) == "nil")
+	assert (type(e1) == "nil")
 end
 
 
