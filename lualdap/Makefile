@@ -2,14 +2,14 @@ WARN= -Wall -Wmissing-prototypes -Wmissing-declarations
 INCS= -I/usr/local/include/lua5
 LIBS_DIR=
 LIBS= -llua.5.0 -llualib.5.0 -lm -lldap -ldl
-CFLAGS= $(MYCFLAGS) $(WARN) $(INCS) $(DEFS)
+CFLAGS= -g $(MYCFLAGS) $(WARN) $(INCS) $(DEFS)
 
 VERSION= 1.0a
 PKG= lualdap-$(VERSION)
 TAR_FILE= $(PKG).tar.gz
 ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
-	lualdap.c lualdap.lua \
+	lualdap.c loader.tmpl \
 	test.lua \
 	index.html manual.html lua.png 
 
@@ -35,11 +35,13 @@ lib: $(LIB)
 	$(RANLIB) $@
 
 so: $(SO)
- $(SO): $(OBJ)
+$(SO): $(OBJ)
+	sed -e "s/LIB_NAME/$(SO)/" loader.tmpl > lualdap.lua
 	gcc -o $@ -shared $(OBJ) $(LIBS_DIR) $(LIBS)
 
 dylib: $(DYLIB)
 $(DYLIB): $(OBJ)
+	sed -e "s/LIB_NAME/$(DYLIB)/" loader.tmpl > lualdap.lua
 	gcc -o $@ -dynamiclib $(OBJ) $(LIBS_DIR) $(LIBS)
 
 clean:
