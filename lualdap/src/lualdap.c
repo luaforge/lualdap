@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.23 2003-09-03 10:40:27 tomas Exp $
+** $Id: lualdap.c,v 1.24 2003-09-03 11:07:51 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -631,6 +631,15 @@ static void push_dn (lua_State *L, LDAP *ld, LDAPMessage *entry) {
 
 
 /*
+**
+*/
+static void search_close (lua_State *L, search_data *search) {
+	luaL_unref (L, LUA_REGISTRYINDEX, search->conn);
+	search->conn = LUA_NOREF;
+}
+
+
+/*
 ** Retrieve next message...
 ** @return #1 entry's distinguished name.
 ** @return #2 table with entry's attributes and values.
@@ -643,10 +652,10 @@ static int next_message (lua_State *L) {
 	int rc;
 	int ret = 1;
 
-	if (search->msgid == -1) { /* no more messages */
+	/*if (search->msgid == -1) {*/ /* no more messages *//*
 		lua_pushnil (L);
 		return 1;
-	}
+	}*/
 	lua_rawgeti (L, LUA_REGISTRYINDEX, search->conn);
 	conn = (conn_data *)lua_touserdata (L, -1); /* get connection */
 
@@ -656,7 +665,8 @@ static int next_message (lua_State *L) {
 	else if (rc == -1)
 		return faildirect (L, LUALDAP_PREFIX"result error");
 	else if (rc == LDAP_RES_SEARCH_RESULT) { /* last message => nil */
-		search->msgid = -1;
+		/* close search object to avoid reuse */
+		search_close (L, search);
 		lua_pushnil (L);
 	} else {
 		LDAPMessage *msg = ldap_first_message (conn->ld, res);
@@ -676,7 +686,8 @@ static int next_message (lua_State *L) {
 				break;
 			}
 			case LDAP_RES_SEARCH_RESULT:
-				search->msgid = -1;
+				/* close search object to avoid reuse */
+				search_close (L, search);
 				lua_pushnil (L);
 				break;
 			default:
@@ -716,8 +727,7 @@ static int lualdap_search_close (lua_State *L) {
 	luaL_argcheck (L, search!=NULL, 1, LUALDAP_PREFIX"LDAP search expected");
 	if (search->conn == LUA_NOREF)
 		return 0;
-	luaL_unref (L, LUA_REGISTRYINDEX, search->conn);
-	search->conn = LUA_NOREF;
+	search_close (L, search);
 	lua_pushnumber (L, 1);
 	return 1;
 }

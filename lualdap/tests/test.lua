@@ -1,7 +1,7 @@
 #!/usr/local/bin/lua
 ---------------------------------------------------------------------
 -- LuaLDAP test file.
--- $Id: test.lua,v 1.7 2003-09-02 17:01:29 tomas Exp $
+-- $Id: test.lua,v 1.8 2003-09-03 11:07:51 tomas Exp $
 -- This test will create a copy of an existing entry on the
 -- directory to work on.  This new entry will be modified,
 -- renamed and deleted at the end.
@@ -106,6 +106,7 @@ function basic_test ()
 	-- reopen the connection.
 	LD = CONN_OK (lualdap.open_simple (HOSTNAME, WHO, PASSWORD, true))
 	CLOSED_LD = ld
+	collectgarbage()
 end
 
 
@@ -147,6 +148,7 @@ function search_test_1 ()
 		sizelimit = 1,
 		filter = "(uid=pedromaia)",
 	}()
+collectgarbage()
 end
 
 
@@ -242,9 +244,10 @@ function search_test_2 ()
 	dn, e1 = iter()
 	assert (type(dn) == "nil")
 	assert (type(e1) == "nil")
-	dn, e1 = iter()
-	assert (type(dn) == "nil")
-	assert (type(e1) == "nil")
+	assert2 (false, pcall (iter))
+	-- checking collecting search objects.
+	local dn, entry = LD:search { base = BASE, scope = "base" }()
+	collectgarbage()
 end
 
 
