@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.29 2004-09-17 15:40:18 tomas Exp $
+** $Id: lualdap.c,v 1.30 2004-10-15 15:28:09 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -12,6 +12,7 @@
 
 #include <lua.h>
 #include <lauxlib.h>
+#include <compat-5.1.h>
 
 
 #define LUALDAP_PREFIX "LuaLDAP: "
@@ -945,34 +946,21 @@ static int lualdap_open_simple (lua_State *L) {
 ** Create ldap table and register the open method.
 */
 int luaopen_lualdap (lua_State *L) {
-	const char *name;
-	int lualdap;
+	struct luaL_reg lualdap[] = {
+		{"open_simple", lualdap_open_simple},
+		{NULL, NULL},
+	};
 
 	lualdap_createmeta (L);
-
+	luaL_openlib (L, LUALDAP_TABLENAME, lualdap, 0);
+/*
 	lua_newtable (L);
 	lualdap = lua_gettop (L);
 	lua_pushliteral (L, "open_simple");
 	lua_pushcfunction (L, lualdap_open_simple);
 	lua_rawset (L, -3);
 	lua_setglobal (L, LUALDAP_TABLENAME);
-
-	/* if Lua 5.0 then Set package.loaded[name] = lualdap */
-	if (lua_isstring(L, 1))
-		name = lua_tostring (L, 1);
-	else {
-		lua_getglobal (L, "arg");
-		lua_rawgeti (L, -1, 1);
-		name = lua_tostring (L, -1);
-		lua_pop (L, 2);
-	}
-	lua_getglobal (L, "package");
-	lua_pushliteral (L, "loaded");
-	lua_gettable (L, -2);
-	lua_pushstring (L, name);
-	lua_pushvalue (L, lualdap);
-	lua_settable (L, -3); /* package.loaded[name] = lualdap */
-	lua_pop (L, 2);
+*/
 
 	return 1;
 }

@@ -1,5 +1,6 @@
+COMPAT_DIR= ../compat
 WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
-INCS= -I/usr/local/include/lua5
+INCS= -I/usr/local/include/lua5 -I$(COMPAT_DIR)
 LIBS_DIR=
 LIBS= -llua -llualib -lm -lldap -ldl
 CFLAGS= -g $(MYCFLAGS) $(WARN) $(INCS) $(DEFS)
@@ -17,7 +18,7 @@ SRCS= README Makefile \
 AR= ar rcu
 RANLIB= ranlib
 
-OBJ= lualdap.o
+OBJ= lualdap.o compat-5.1.o
 LIB= liblualdap$(VERSION).a
 SO= liblualdap$(VERSION).so
 DYLIB= liblualdap$(VERSION).dylib
@@ -45,6 +46,9 @@ $(DYLIB): $(OBJ)
 	sed -e "s/LIB_NAME/$(DYLIB)/" loader.tmpl > lualdap.lua
 	#gcc -o $@ -dynamiclib $(OBJ) $(LIBS_DIR) $(LIBS)
 	libtool -dynamic -compatibility_version $V -current_version $V -o $@ $(OBJ) $(LIBS_DIR) $(LIBS) -lcc_dynamic -lc
+
+compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
+	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
 
 clean:
 	rm -f $(OBJ) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
