@@ -3,10 +3,10 @@ LUA_LIBDIR= /usr/local/lib/lua/5.0
 # Lua includes directory
 LUA_INC= /usr/local/include/lua5
 # OS dependent
-#LIB_EXT= .so
-LIB_EXT= .dylib
-#LIB_OPTION= -shared #for Linux
-LIB_OPTION= -dynamiclib #for MacOS X
+LIB_EXT= .so
+#LIB_EXT= .dylib
+LIB_OPTION= -shared #for Linux
+#LIB_OPTION= -dynamiclib #for MacOS X
 
 # On FreeBSD systems, the following line should be commented
 DLLIB= -ldl
@@ -22,15 +22,15 @@ CC= gcc
 
 T= lualdap
 V= 1.0
-VERSION= $Vb
+VERSION= $V
 PKG= lualdap-$(VERSION)
 DIST_DIR= $(PKG)
 TAR_FILE= $(PKG).tar.gz
 ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
-	lualdap.c lualdap.def loader.tmpl \
-	test.lua \
-	index.html manual.html license.html lualdap.png 
+	src/lualdap.c \
+	tests/test.lua \
+	doc/index.html doc/manual.html doc/license.html doc/lualdap.png 
 
 AR= ar rcu
 RANLIB= ranlib
@@ -40,13 +40,15 @@ LIB= lib$T$(VERSION).a
 LIBNAME= lib$T$(VERSION)$(LIB_EXT)
 
 dist: dist_dir
-	tar -czf $(TAR_FILE) $(DIST_DIR);
+	tar -czf $(TAR_FILE) $(DIST_DIR)
 	zip -rq $(ZIP_FILE) $(DIST_DIR)/*
 	rm -rf $(DIST_DIR)
 
 dist_dir:
-	mkdir $(DIST_DIR);
-	cp $(SRCS) $(DIST_DIR);
+	mkdir $(DIST_DIR)
+	cp README Makefile $(DIST_DIR)
+	cp -r src tests doc vc6 $(DIST_DIR)
+	find $(DIST_DIR) -name CVS | xargs rm -rf
 
 lib: $(LIB)
  $(LIB): $(OBJS)
@@ -68,4 +70,4 @@ compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 clean:
 	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
 
-# $Id: Makefile,v 1.18 2005-02-01 16:52:04 tomas Exp $
+# $Id: Makefile,v 1.19 2005-04-01 17:01:45 tomas Exp $
