@@ -1,10 +1,23 @@
+# System's libraries directory (where binary libraries are installed)
+LIB_DIR= /usr/lib
+#LIB_EXT= .so
+LIB_EXT= .dylib
+#LIB_OPTION= -shared
+LIB_OPTION= -dynamiclib
+
+# On FreeBSD systems, the following line should be commented
+DLLIB= -ldl
+
 COMPAT_DIR= ../compat
-WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
+WARN= -O2 -Wall -fPIC -W -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -ansi
+#WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I/usr/local/include/lua5 -I$(COMPAT_DIR)
 LIBS_DIR=
-LIBS= -llua -llualib -lm -lldap -ldl
-CFLAGS= -g $(MYCFLAGS) $(WARN) $(INCS) $(DEFS)
+LIBS= -L$(LIB_DIR) -lldap -llua -llualib -lm $(DLLIB)
+CFLAGS= $(WARN) $(INCS)
+CC= gcc
 
+T= lualdap
 V= 1.0
 VERSION= $Va
 PKG= lualdap-$(VERSION)
@@ -18,11 +31,9 @@ SRCS= README Makefile \
 AR= ar rcu
 RANLIB= ranlib
 
-OBJ= lualdap.o compat-5.1.o
-LIB= liblualdap$(VERSION).a
-SO= liblualdap$(VERSION).so
-DYLIB= liblualdap$(VERSION).dylib
-DLL= lualdap$(VERSION).dll
+OBJS= lualdap.o compat-5.1.o
+LIB= lib$T$(VERSION).a
+LIBNAME= lib$T$(VERSION)$(LIB_EXT)
 
 dist:
 	mkdir $(PKG);
@@ -32,23 +43,29 @@ dist:
 	rm -rf $(PKG)
 
 lib: $(LIB)
- $(LIB): $(OBJ)
-	$(AR) $@ $(OBJ)
+ $(LIB): $(OBJS)
+	$(AR) $@ $(OBJS)
 	$(RANLIB) $@
 
-so: $(SO)
-$(SO): $(OBJ)
-	sed -e "s/LIB_NAME/$(SO)/" loader.tmpl > lualdap.lua
-	gcc -o $@ -shared $(OBJ) $(LIBS_DIR) $(LIBS)
+dynamic: $(LIBNAME)
+$(LIBNAME): $(OBJS)
+	$(CC) $(CFLAGS) $(LIB_OPTION) -o $(LIBNAME) $(OBJS) $(LIBS)
 
-dylib: $(DYLIB)
-$(DYLIB): $(OBJ)
-	sed -e "s/LIB_NAME/$(DYLIB)/" loader.tmpl > lualdap.lua
-	#gcc -o $@ -dynamiclib $(OBJ) $(LIBS_DIR) $(LIBS)
-	libtool -dynamic -compatibility_version $V -current_version $V -o $@ $(OBJ) $(LIBS_DIR) $(LIBS) -lcc_dynamic -lc
+#so: $(SO)
+#$(SO): $(OBJ)
+#	gcc -o $@ -shared $(OBJ) $(LIBS_DIR) $(LIBS)
+
+#dylib: $(DYLIB)
+#$(DYLIB): $(OBJ)
+#	libtool -dynamic -compatibility_version $V -current_version $V -o $@ $(OBJ) $(LIBS_DIR) $(LIBS) -lcc_dynamic -lc
+
+install: lib $(LIBNAME)
+	mkdir -p $(LIB_DIR)
+	cp $(LIBNAME) $(LIB_DIR)
+	ln -f -s $(LIB_DIR)/$(LIBNAME) $(LIB_DIR)/$T$(LIB_EXT)
 
 compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
 
 clean:
-	rm -f $(OBJ) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
+	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
