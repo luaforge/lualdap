@@ -11,7 +11,7 @@ ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
 	lualdap.c loader.tmpl \
 	test.lua \
-	index.html manual.html license.html lua.png 
+	index.html manual.html license.html lualdqp.png 
 
 AR= ar rcu
 RANLIB= ranlib
