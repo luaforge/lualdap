@@ -39,7 +39,7 @@ LIBNAME= lib$T$(VERSION)$(LIB_EXT)
 
 dist: dist_dir
 	tar -czf $(TAR_FILE) $(DIST_DIR);
-	zip -lq $(ZIP_FILE) $(DIST_DIR)/*
+	zip -rq $(ZIP_FILE) $(DIST_DIR)/*
 	rm -rf $(DIST_DIR)
 
 dist_dir:
@@ -66,4 +66,4 @@ compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 clean:
 	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
 
-# $Id: Makefile,v 1.15 2004-11-09 14:11:56 tomas Exp $
+# $Id: Makefile,v 1.16 2004-11-24 15:26:40 tomas Exp $
