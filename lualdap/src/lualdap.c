@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.12 2003-08-18 12:55:22 tomas Exp $
+** $Id: lualdap.c,v 1.13 2003-08-19 18:06:05 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -22,7 +22,7 @@
 #define LUALDAP_MOD_DEL (LDAP_MOD_DELETE | LDAP_MOD_BVALUES)
 #define LUALDAP_MOD_REP (LDAP_MOD_REPLACE | LDAP_MOD_BVALUES)
 
-/* Maximum number of attributes managed in an operation */
+/* Maximum number of attributes manipulated in an operation */
 #ifndef LUALDAP_MAX_ATTRS
 #define LUALDAP_MAX_ATTRS 100
 #endif
@@ -123,9 +123,9 @@ static void strgettable (lua_State *L, char *name) {
 ** Get the field named name as a string.
 ** The table should be at position 2.
 */
-static const char *strtabparam (lua_State *L, char *name) {
+static const char *strtabparam (lua_State *L, char *name, char *def) {
 	strgettable (L, name);
-	return luaL_optstring (L, -1, NULL);
+	return luaL_optstring (L, -1, def);
 }
 
 
@@ -298,7 +298,7 @@ static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 		array[n] = NULL;
 		/*lua_pop (L, n);*/
 	} else 
-		return luaL_error (L, LUALDAP_PREFIX"bad argument #%d (table or string expected, got %s)", tab, lua_typename (L, tab));
+		return luaL_error (L, LUALDAP_PREFIX"bad argument #%d (table or string expected, got %s)", tab, lua_typename (L, lua_type (L, tab)));
 	return 0;
 }
 
@@ -569,6 +569,8 @@ static int next_message (lua_State *L) {
 ** Convert a string to one of the possible scopes of the search.
 */
 static int string2scope (const char *s) {
+	if (!s)
+		return LDAP_SCOPE_DEFAULT;
 	switch (*s) {
 		case 'b':
 			return LDAP_SCOPE_BASE;
@@ -644,9 +646,9 @@ static int lualdap_search (lua_State *L) {
 			return 2;
 	/* get other parameters */
 	attrsonly = booltabparam (L, "attrsonly", 0);
-	base = strtabparam (L, "base");
-	filter = strtabparam (L, "filter");
-	scope = string2scope (strtabparam (L, "scope"));
+	base = strtabparam (L, "base", NULL);
+	filter = strtabparam (L, "filter", NULL);
+	scope = string2scope (strtabparam (L, "scope", NULL));
 	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
 	st.tv_sec = longtabparam (L, "timeoutsec", 0);
 	st.tv_usec = longtabparam (L, "timeoutmicrosec", 0);
