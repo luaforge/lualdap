@@ -122,6 +122,18 @@ therefore it depends on a previous installation of this library.
 You can download OpenLDAP from the
 <a href="http://www.openldap.org/software/download">OpenLDAP download page</a>.
 </p>
+<p>
+LuaLDAP follows the
+<a href="http://www.keplerproject.org/compat">package proposal</a>
+for Lua 5.1,
+therefore this package should be "installed".
+In other words,
+if you are using Lua 5.0,
+the files <tt>compat-5.1.c</tt> and <tt>compat-5.1.h</tt> must be used
+in the compalation and the file <tt>compat-5.1.lua</tt> must be installed
+in the <tt>LUA_PATH</tt>.
+If you are using Lua 5.1,
+nothing should be done.
 
 
 <a name="credits">
@@ -166,7 +178,7 @@ Comments are welcome!
 
 <hr>
 <small>
-$Id: index.html,v 1.15 2004-05-31 11:00:13 tomas Exp $
+$Id: index.html,v 1.16 2004-10-05 14:14:21 tomas Exp $
 </small>
 
 </body>
