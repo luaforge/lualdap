@@ -30,7 +30,6 @@
                 <li><a href="index.html#status">Status</a></li>
                 <li><a href="index.html#download">Download</a></li>
                 <li><a href="index.html#history">History</a></li>
-                <li><a href="index.html#installation">Installation</a></li>
                 <li><a href="index.html#credits">Credits</a></li>
                 <li><a href="index.html#contact">Contact us</a></li>
             </ul>
@@ -38,10 +37,11 @@
         <li><a href="manual.html">Manual</a>
             <ul>
                 <li><a href="manual.html#introduction">Introduction</a></li>
+                <li><a href="manual.html#installation">Installation</a></li>
                 <li><a href="manual.html#attributes">Attributes</a></li>
                 <li><a href="manual.html#dn">DN</a></li>
-                <li><a href="manual.html#initialization_functions">initialization</a></li>
-                <li><a href="manual.html#connection_object">connection</a></li>
+                <li><a href="manual.html#initialization">Initialization</a></li>
+                <li><a href="manual.html#connection">Connection</a></li>
                 <li><a href="manual.html#examples">Examples</a></li>
             </ul>
         </li>
@@ -51,7 +51,7 @@
 
 <div id="content">
 
-<h2>Overview</h2>
+<h2><a name="over"></a>Overview</h2>
 
 <p>LuaLDAP is a simple interface from Lua to an LDAP client (in
 fact it is a bind to <a href=
@@ -59,17 +59,11 @@ fact it is a bind to <a href=
 to:</p>
 
 <ul>
-<li>Connect to an LDAP server;</li>
-
-<li>Execute any operation (search, add, compare, delete, modify and
-rename);</li>
-
-<li>Retrieve entries and references of the search result.</li>
+    <li>Connect to an LDAP server;</li>
+    <li>Execute any operation (search, add, compare, delete, modify and
+    rename);</li>
+    <li>Retrieve entries and references of the search result.</li>
 </ul>
-
-<br>
-<br>
- 
 
 <p>LuaLDAP is free software and uses the same <a href=
 "license.html">license</a> as Lua 5.0.</p>
@@ -81,52 +75,26 @@ OpenLDAP 2.1.</p>
 
 <p>Version 1.0 follows the <a href=
 "http://www.keplerproject.org/compat">package proposal</a> for Lua
-5.1 (see section <a href="#installation">Installation</a> for more
+5.1 (see section <a href="manual.html#installation">Installation</a> for more
 details).</p>
 
-<h2>Download</h2>
+<h2><a name="download"></a>Download</h2>
 
-LuaLDAP can be downloaded in source code from the following links: 
+<p>LuaLDAP can be downloaded in source code from the
+<a href="http://luaforge.net/frs/?group_id=14">LuaForge</a>
+page.</p>
 
-<blockquote><a href=
-"lualdap-1.0b.tar.gz">lualdap-1.0b.tar.gz</a><br>
-<a href="lualdap-1.0b.zip">lualdap-1.0b.zip</a></blockquote>
-
-<p><a href="http://www.openldap.org">OpenLDAP</a> can be downloaded
-from the <a href=
-"http://www.openldap.org/software/download">OpenLDAP download
-page</a>.</p>
+<p>LuaLDAP <a href="http://luaforge.net/scm/?group_id=14">CVS</a>
+can also be accessed at LuaForge</p>
 
 <h2><a name="history"></a>History</h2>
 
 <ul>
-<li>[?/?/2004] Version 1.0 beta released</li>
-
-<li>[10/dec/2003] Version 1.0 alpha released</li>
+    <li>[?/Apr/2005] Version 1.0 Beta released</li>
+    <li>[10/Dec/2003] Version 1.0 Alpha released</li>
 </ul>
 
-<br>
-<br>
- <a name="installation"></a> 
-
-<h2>Installation</h2>
-
-<p>LuaLDAP is a bind to the <a href=
-"http://www.openldap.org">OpenLDAP</a> library, therefore it
-depends on a previous installation of this library. You can
-download OpenLDAP from the <a href=
-"http://www.openldap.org/software/download">OpenLDAP download
-page</a>.</p>
-
-<p>LuaLDAP follows the <a href=
-"http://www.keplerproject.org/compat">package proposal</a> for Lua
-5.1, therefore this package should be "installed". In other words,
-if you are using Lua 5.0, the files <tt>compat-5.1.c</tt> and
-<tt>compat-5.1.h</tt> must be used in the compalation and the file
-<tt>compat-5.1.lua</tt> must be installed in the <tt>LUA_PATH</tt>.
-If you are using Lua 5.1, nothing should be done.</p>
-
-<h2>Credits</h2>
+<h2><a name="credits"></a>Credits</h2>
 
 <p>LuaLDAP was designed by Roberto Ierusalimschy, Andr&eacute;
 Carregal and Tom&aacute;s Guisasola as part of the
@@ -138,9 +106,7 @@ It was implemented by Tom&aacute;s Guisasola.</p>
 "http://www.fabricadigital.com.br">F&aacute;brica Digital</a> and
 FINEP.</p>
 
-<a name="contact"></a> 
-
-<h2>Contact us</h2>
+<h2><a name="contact"></a>Contact us</h2>
 
 <p>For further information please <a href=
 "mailto:info-NO-SPAM-THANKS@keplerproject.org">contact us</a>.
@@ -153,7 +119,7 @@ Comments are welcome!</p>
 <div id="about">
 	<p><a href="http://validator.w3.org/check?uri=referer"><img src="http://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0!" height="31" width="88" /></a></p>
 	<p><small>
-	$Id: index.html,v 1.21 2005-03-29 23:01:04 carregal Exp $
+	$Id: index.html,v 1.22 2005-03-31 00:59:55 carregal Exp $
 	</small></p>
 </div> <!-- id="about" -->
 

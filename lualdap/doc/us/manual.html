@@ -25,24 +25,24 @@
 <div id="navigation">
 <h1>LuaLDAP</h1>
     <ul>
-        <li><strong>Home</strong>
+        <li><a href="index.html">Home</a>
             <ul>
                 <li><a href="index.html#over">Overview</a></li>
                 <li><a href="index.html#status">Status</a></li>
                 <li><a href="index.html#download">Download</a></li>
                 <li><a href="index.html#history">History</a></li>
-                <li><a href="index.html#installation">Installation</a></li>
                 <li><a href="index.html#credits">Credits</a></li>
                 <li><a href="index.html#contact">Contact us</a></li>
             </ul>
         </li>
-        <li><a href="manual.html">Manual</a>
+        <li><strong>Manual</strong>
             <ul>
                 <li><a href="manual.html#introduction">Introduction</a></li>
+                <li><a href="manual.html#installation">Installation</a></li>
                 <li><a href="manual.html#attributes">Attributes</a></li>
                 <li><a href="manual.html#dn">DN</a></li>
-                <li><a href="manual.html#initialization_functions">initialization</a></li>
-                <li><a href="manual.html#connection_object">connection</a></li>
+                <li><a href="manual.html#initialization">Initialization</a></li>
+                <li><a href="manual.html#connection">Connection</a></li>
                 <li><a href="manual.html#examples">Examples</a></li>
             </ul>
         </li>
@@ -52,16 +52,14 @@
 
 <div id="content">
 
-<a name="introduction"></a> 
-
-<h2>Introduction</h2>
+<h2><a name="introduction"></a>Introduction</h2>
 
 <p>LuaLDAP is a simple interface from Lua to an LDAP client (in
 fact it is a bind to <a href="http://www.openldap.org">OpenLDAP</a>
 client).</p>
 
 <p>LuaLDAP defines one single global variable: a table called
-<tt>lualdap</tt>. This table holds the functions used to create an
+<code>lualdap</code>. This table holds the functions used to create an
 LDAP connection object.</p>
 
 <p>A connection object offers methods to perform any operation on
@@ -72,10 +70,24 @@ tables; attributes are its fields. The attribute values can be
 strings or tables of strings (used to represent multiple
 values).</p>
 
-<p>LuaLDAP is free software and uses the same <a href=
-"license.html">license</a> as Lua 5.0.</p>
+<h2><a name="installation"></a>Installation</h2>
 
-<h2>Representing attributes</h2>
+<p>LuaLDAP is a bind to the <a href=
+"http://www.openldap.org">OpenLDAP</a> library, therefore it
+depends on a previous installation of this library. You can
+download OpenLDAP from the OpenLDAP <a href=
+"http://www.openldap.org/software/download">download
+page</a>.</p>
+
+<p>LuaLDAP follows the <a href=
+"http://www.keplerproject.org/compat/">package proposal</a> for Lua
+5.1, therefore this package should be "installed". In other words,
+if you are using Lua 5.0, the files <code>compat-5.1.c</code> and
+<code>compat-5.1.h</code> must be used in the compalation and the file
+<code>compat-5.1.lua</code> must be installed in the <code>LUA_PATH</code>.
+If you are using Lua 5.1, nothing should be done.</p>
+
+<h2><a name="attributes"></a>Representing attributes</h2>
 
 <p>Many LDAP operations manage sets of attributes and values.
 LuaLDAP provides a uniform way of representing them: using Lua
@@ -87,20 +99,19 @@ that will be explained when necessary.</p>
 
 <p>Follows a small example:</p>
 
-<pre>
-    entry = {
-        an_attribute = "a value",
-        other_attribute = {
-            "first value of other attribute",
-            "another value of other attribute",
-        },
-    }
+<pre class="example">
+entry = {
+    an_attribute = "a value",
+    other_attribute = {
+        "first value of other attribute",
+        "another value of other attribute",
+    },
+}
 </pre>
 
-Attribute names cannot contain zeroes (<tt>'\0'</tt>) <a name=
-"dn"></a> 
+Attribute names cannot contain zeroes (<code>'\0'</code>)
 
-<h2>Distinguished names</h2>
+<h2><a name="dn"></a>Distinguished names</h2>
 
 <p>The distinguished name (DN) is the term used to identify an
 entry on the directory information tree. It is formed by the
@@ -110,35 +121,32 @@ to represent the DN of any entry.</p>
 
 <p>A more precise definition can be found on the LDAP
 documentation. A list of some of these files can be found in
-section <a href="#related_docs">Related documentation</a>. <a name=
-"initialization_functions"></a></p>
+section <a href="#related_docs">Related documentation</a>.</p>
 
-<h2>Initialization functions</h2>
+<h2><a name="initialization"></a>Initialization functions</h2>
 
 <p>LuaLDAP provides a single way to connect to an LDAP server:</p>
 
 <ul>
-<li style="list-style: none"><a name="open_simple"></a></li>
-
-<li><b><tt>lualdap.open_simple (hostname, who, password,
-usetls)</tt></b><br>
-Initializes a session with an LDAP server. This function requires a
-hostname, accordingly to <a href="#related_docs">the C LDAP API</a>
-definition (<em>"hostname contains a space-separated list of
-hostnames or dotted strings representing the IP address of hosts
-running an LDAP server to connect to. Each hostname in the list MAY
-include a port number which is separated from the host itself with
-a colon (:) character."</em>). The argument <tt>who</tt> should be
-the <a href="#dn">distinguished name</a> of the entry that has the
-password to be checked against the third argument,
-<tt>password</tt>. The optional argument <tt>usetls</tt> is a
-Boolean flag indicating if Transport Layer Security (TLS) should be
-used.<br>
-Returns a connection object or <tt>nil</tt> followed by an error
-string.</li>
+    <li><strong><code>lualdap.open_simple (hostname, who, password,
+    usetls)</code></strong><br />
+    Initializes a session with an LDAP server. This function requires a
+    hostname, accordingly to <a href="#related_docs">the C LDAP API</a>
+    definition (<em>"hostname contains a space-separated list of
+    hostnames or dotted strings representing the IP address of hosts
+    running an LDAP server to connect to. Each hostname in the list MAY
+    include a port number which is separated from the host itself with
+    a colon (:) character."</em>). The argument <code>who</code> should be
+    the <a href="#dn">distinguished name</a> of the entry that has the
+    password to be checked against the third argument,
+    <code>password</code>. The optional argument <code>usetls</code> is a
+    Boolean flag indicating if Transport Layer Security (TLS) should be
+    used.<br />
+    Returns a connection object or <code>nil</code> followed by an error
+    string.</li>
 </ul>
 
-<h2>Connection objects</h2>
+<h2><a name="connection"></a>Connection objects</h2>
 
 <p>A connection object offers methods which implement LDAP
 operations. Almost all of them need a <a href="#dn">distinguished
@@ -147,119 +155,99 @@ executed.</p>
 
 <p>These methods execute asynchronous operations and return a
 function that should be called to obtain the result(s). These
-functions will return <tt>true</tt> indicating success of the
-operation; the only exception is the function <tt><a href=
-"#conn_compare">compare</a></tt> which can return either
-<tt>true</tt> or <tt>false</tt> (which is the result of the
+functions will return <code>true</code> indicating success of the
+operation; the only exception is the function <code><a href=
+"#conn_compare">compare</a></code> which can return either
+<code>true</code> or <code>false</code> (which is the result of the
 comparison) on a successful operation.</p>
 
 <p>There are two types of errors: <em>API errors</em>, such as
 wrong parameters, absent connection etc.; and <em>LDAP errors</em>,
 such as mal-formed DN, unknown attribute etc. API errors will raise
 a Lua error, while LDAP errors will be reported by the
-function/method returning <tt>nil</tt> followed by the error
+function/method returning <code>nil</code> followed by the error
 message provided by the OpenLDAP client.</p>
 
 <p>A connection object can be created by calling the <a href=
-"#initialization_functions">Initialization function</a>.</p>
+"#initialization">Initialization function</a>.</p>
 
 <h4>Methods</h4>
 
 <ul>
-<li style="list-style: none"><a name="conn_add"></a></li>
-
-<li><b><tt>conn:add (distinguished_name,
-table_of_attributes)</tt></b><br>
-Adds a new entry to the directory with the given attributes and
-values. <a name="conn_close"></a></li>
-
-<li><b><tt>conn:close()</tt></b><br>
-Closes the connection <tt>conn</tt>. <a name=
-"conn_compare"></a></li>
-
-<li><b><tt>conn:compare (distinguished_name, attribute,
-value)</tt></b><br>
-Compares a value against an entry. <a name="conn_delete"></a></li>
-
-<li><b><tt>conn:delete (distinguished_name)</tt></b><br>
-Deletes an entry from the directory. <a name=
-"conn_modify"></a></li>
-
-<li><b><tt>conn:modify (distinguished_name,
-table_of_operations*)</tt></b><br>
-Changes values of attributes in the given entry. The tables of
-operations are <a href="#attributes">table of attributes</a> but
-with the value on index <tt>1</tt> indicating the operation to be
-performed. The valid operations are: 
-
-<ul>
-<li><b><tt>'+'</tt></b> to add the values to the attributes</li>
-
-<li><b><tt>'-'</tt></b> to delete the values of the attributes</li>
-
-<li><b><tt>'='</tt></b> to replace the values of the
-attributes</li>
+    <li><strong><code>conn:add (distinguished_name,
+    table_of_attributes)</code></strong><br />
+    Adds a new entry to the directory with the given attributes and
+    values. <a name="conn_close"></a>
+    </li>
+    <li><strong><code>conn:close()</code></strong><br />
+    Closes the connection <code>conn</code>.
+    </li>
+    <li><strong><code>conn:compare (distinguished_name, attribute,
+    value)</code></strong><br />
+    Compares a value against an entry.</li>
+    <li><strong><code>conn:delete (distinguished_name)</code></strong><br />
+    Deletes an entry from the directory.
+    </li>
+    <li><strong><code>conn:modify (distinguished_name,
+    table_of_operations*)</code></strong><br />
+    Changes values of attributes in the given entry. The tables of
+    operations are <a href="#attributes">table of attributes</a> but
+    with the value on index <code>1</code> indicating the operation to be
+    performed. The valid operations are: 
+    <ul>
+        <li><strong><code>'+'</code></strong> to add the values to the attributes</li>
+        <li><strong><code>'-'</code></strong> to delete the values of the attributes</li>
+        <li><strong><code>'='</code></strong> to replace the values of the attributes</li>
+    </ul>
+    All tables of operations given as arguments will be joined together
+    to perform a single LDAP modify operation.
+    </li>
+    <li><strong><code>conn:rename (distinguished_name, new_relative_dn,
+    new_parent)</code></strong><br />
+    Changes entry names (i.e. change its <a href="#dn">distinguished
+    name</a>).
+    </li>
+    <li><strong><code>conn:search (table_of_search_parameters)</code></strong><br />
+    Performs a search operation on the directory. The parameters are
+    described below: 
+    <ul>
+        <li><strong><code>attrs</code></strong>: a string or a list of attribute names to
+        be retrieved (default is to retrieve all attributes).</li>
+        <li><strong><code>attrsonly</code></strong>: a Boolean value that must be either
+        <em>false</em> (default) if both attribute names and values are to be
+        retrieved, or <em>true</em> if only names are wanted.</li>
+        <li><strong><code>base</code></strong>: The <a href="#dn">distinguished name</a>
+        of the entry at which to start the search.</li>
+        <li><strong><code>filter</code></strong>: A string representing the search filter
+        as described in <a href="http://www.ietf.org/rfc/rfc2254.txt">The
+        String Representation of LDAP Search Filters (RFC 2254)</a>.</li>
+        <li><strong><code>scope</code></strong>: A string indicating the scope of the
+        search. The valid strings are: "base", "onelevel" and "subtree".
+        The empty string ("") and <code>nil</code> will be treated as the
+        default scope.</li>
+        <li><strong><code>sizelimit</code></strong>: The maximum number of entries to
+        return (default is no limit).</li>
+        <li><strong><code>timeout</code></strong>: The timeout in seconds (default is no
+        timeout). The precision is microseconds.</li>
+    </ul>
+    The search method will return a <em>search iterator</em> which is a
+    function that requires no arguments. The search iterator is used to
+    get the search result and will return a string representing the <a
+    href="#dn">distinguished name</a> and a <a href="#attributes">table
+    of attributes</a> as returned by the search request.</li>
 </ul>
 
-All tables of operations given as arguments will be joined together
-to perform a single LDAP modify operation. <a name=
-"conn_rename"></a></li>
+<h2><a name="examples"></a>Example</h2>
 
-<li><b><tt>conn:rename (distinguished_name, new_relative_dn,
-new_parent)</tt></b><br>
-Changes entry names (<i>i.e. change its <a href="#dn">distinguished
-name</a></i>). <a name="conn_search"></a></li>
+<p>Below is a small sample code displaying the basic use of the
+library.</p>
 
-<li><b><tt>conn:search (table_of_search_parameters)</tt></b><br>
-Performs a search operation on the directory. The parameters are
-described below: 
-
-<ul>
-<li><b><tt>attrs</tt></b>: a string or a list of attribute names to
-be retrieved (default is to retrieve all attributes).</li>
-
-<li><b><tt>attrsonly</tt></b>: a Boolean value that must be either
-<i>false</i> (default) if both attribute names and values are to be
-retrieved, or <i>true</i> if only names are wanted.</li>
-
-<li><b><tt>base</tt></b>: The <a href="#dn">distinguished name</a>
-of the entry at which to start the search.</li>
-
-<li><b><tt>filter</tt></b>: A string representing the search filter
-as described in <a href="http://www.ietf.org/rfc/rfc2254.txt">The
-String Representation of LDAP Search Filters (RFC 2254)</a>.</li>
-
-<li><b><tt>scope</tt></b>: A string indicating the scope of the
-search. The valid strings are: "base", "onelevel" and "subtree".
-The empty string ("") and <tt>nil</tt> will be treated as the
-default scope.</li>
-
-<li><b><tt>sizelimit</tt></b>: The maximum number of entries to
-return (default is no limit).</li>
-
-<li><b><tt>timeout</tt></b>: The timeout in seconds (default is no
-timeout). The precision is microseconds.</li>
-</ul>
-
-The search method will return a <i>search iterator</i> which is a
-function that requires no arguments. The search iterator is used to
-get the search result and will return a string representing the <a
-href="#dn">distinguished name</a> and a <a href="#attributes">table
-of attributes</a> as returned by the search request.</li>
-</ul>
-
-<a name="examples"></a> 
-
-<h2>Example</h2>
-
-Below is a small sample code displaying the basic use of the
-library. 
-
-<blockquote>
-<pre>
+<pre class="example">
 require "lualdap"
 
-ld = assert (lualdap.open_simple ("ldap.server", "mydn=manoeljoaquim,ou=people,dc=ldap,dc=world", "mysecurepassword"))
+ld = assert (lualdap.open_simple ("ldap.server",
+                "mydn=manoeljoaquim,ou=people,dc=ldap,dc=world",
+                "mysecurepassword"))
 
 for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" } do
     io.write (string.format ("\t[%s]\n", dn))
@@ -288,7 +276,8 @@ ld:add ("mydn=newuser,ou=people,dc=ldap,dc=world", {
 
 ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
     { '=', givenName = "New", cn = "New", sn = "User", },
-    { '+', o = { "University", "College", }, mail = "newuser@university.edu", },
+    { '+', o = { "University", "College", },
+           mail = "newuser@university.edu", },
     { '-', abc = true, tel = "123456758", },
     { '+', tel = "13579113", },
 }()
@@ -296,27 +285,19 @@ ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
 ld:delete ("mydn=newuser,ou=people,dc=ldp,dc=world")()
 
 </pre>
-</blockquote>
 
-<a name="related_docs"></a> 
-
-<h2>Related documentation</h2>
-
-Here is a list of related documentation: 
+<h2><a name="related_docs"></a>Related documentation</h2>
 
 <ul>
-<li><a href="http://www.ietf.org/rfc/rfc2251.txt">Lightweight
-Directory Access Protocol (v3)</a></li>
-
-<li><a href="http://www.ietf.org/rfc/rfc3377.txt">LDAPv3 Technical
-Specification</a></li>
-
-<li><a href="http://www.ietf.org/rfc/rfc2254.txt">The String
-Representation of LDAP Search Filters (RFC 2254)</a></li>
-
-<li><a href=
-"http://www.ietf.org/proceedings/01aug/I-D/draft-ietf-ldapext-ldap-c-api-05.txt">
-The C LDAP Application Program Interface</a></li>
+    <li><a href="http://www.ietf.org/rfc/rfc2251.txt">Lightweight
+    Directory Access Protocol (v3)</a></li>
+    <li><a href="http://www.ietf.org/rfc/rfc3377.txt">LDAPv3 Technical
+    Specification</a></li>
+    <li><a href="http://www.ietf.org/rfc/rfc2254.txt">The String
+    Representation of LDAP Search Filters (RFC 2254)</a></li>
+    <li><a href=
+    "http://www.ietf.org/proceedings/01aug/I-D/draft-ietf-ldapext-ldap-c-api-05.txt">
+    The C LDAP Application Program Interface</a></li>
 </ul>
 
 </div> <!-- id="content" -->
@@ -326,7 +307,7 @@ The C LDAP Application Program Interface</a></li>
 <div id="about">
 	<p><a href="http://validator.w3.org/check?uri=referer"><img src="http://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0!" height="31" width="88" /></a></p>
 	<p><small>
-	$Id: manual.html,v 1.18 2005-03-29 23:01:04 carregal Exp $
+	$Id: manual.html,v 1.19 2005-03-31 00:59:55 carregal Exp $
 	</small></p>
 </div> <!-- id="about" -->
 
