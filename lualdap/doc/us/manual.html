@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.7 2003-09-01 16:13:56 tomas Exp $>
+<!$Id: manual.html,v 1.8 2003-09-01 18:58:18 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -176,8 +176,7 @@ The parameters are described below:
   <li> <b><tt>filter</tt></b> A string representing the search filter as described in <a href="http://www.ietf.org/rfc/rfc2254.txt">The String Representation of LDAP Search Filters (RFC 2254)</a>.
   <li> <b><tt>scope</tt></b> A string indicating the scope of the search.  The valid strings are: "base", "onelevel" and "subtree".  In fact, just the initial letter is tested, so any string beginning with the same lower case letters will be accepted.  The empty string ("") and <tt>nil</tt> will be treated as the default scope.
   <li> <b><tt>sizelimit</tt></b> The maximum number of entries to return (the default is no limit).
-  <li> <b><tt>timeoutmicrosec</tt></b> The timeout in microseconds (default is no timeout).  This number will be combined with <tt>timeoutmicrosec</tt>; if both are zero, no timeout will be used.
-  <li> <b><tt>timeoutsec</tt></b> The timeout in seconds (default is no timeout).  This number will be combined with <tt>timeoutsec</tt>; if both are zero, no timeout will be used.
+  <li> <b><tt>timeout</tt></b> The timeout in seconds (default is no timeout).  The precision is microseconds.
 </ul>
 The search method will return a <i>search iterator</i> which is a function
 that should be called with no arguments.
