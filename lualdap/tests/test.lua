@@ -1,6 +1,6 @@
 #!/usr/local/bin/lua
 -- LuaLDAP test file.
--- $Id: test.lua,v 1.3 2003-06-16 16:41:15 tomas Exp $
+-- $Id: test.lua,v 1.4 2003-06-23 11:27:55 tomas Exp $
 
 function print_attrs (attrs)
 	io.write (string.format (" [dn] : %s\n", attrs.dn))
@@ -23,18 +23,18 @@ end
 require"lualdap"
 
 if table.getn(arg) < 1 then
-	print (string.format ("Usage %s host[:port] base", arg[0]))
+	print (string.format ("Usage %s host[:port] base [filter [attribs*]]", arg[0]))
 	os.exit()
 end
 
 local hostname = arg[1]
---local who = arg[2]
---local password = arg[3]
-local base = arg[2]
-local filter = arg[3] or "objectclass=*"
+local who = arg[2]
+local password = arg[3]
+local base = arg[4]
+local filter = arg[5] or "objectclass=*"
 local attribs = {}
-for n = 4, table.getn(arg) do
-	attribs[n-3] = arg[n]
+for n = 6, table.getn(arg) do
+	attribs[n-5] = arg[n]
 end
 
 assert (lualdap, "couldn't load LDAP library")
@@ -45,15 +45,18 @@ assert (pcall (ld.close, ld) == false)
 local ld = assert (lualdap.open_simple (hostname, who, password))
 
 -- search
---for msg, attrs in ld:search_attribs (base, "subtree", filter, attribs) do
-	--print_attrs (attrs)
---end
---print ("search ok")
+for attrs in ld:search (base, "subtree", filter, attribs) do
+--print(attrs)
+	print_attrs (attrs)
+end
+print ("search ok")
+--print(ld:search (base, "subtree", filter, attribs))
 
 -- compare
 --print("compare", ld:compare ("videoID=676DE,ou=video,dc=teste,dc=br", "videoTitulo", "Tecnologias de Video Digital"))
 
 -- add
+--[[
 print("add", ld:add ("videoID=23042011,ou=video,dc=teste,dc=br", {
 	videoID = "23042011",
 	objectClass = { "objVideo", "objConteudo", },
@@ -64,19 +67,19 @@ print("add", ld:add ("videoID=23042011,ou=video,dc=teste,dc=br", {
 print("modify", ld:modify ("videoID=676DE,ou=video,dc=teste,dc=br", {
 	{ op = "a", type = "videoTitulo", values = "Tecnologias de Video Digital" },
 }))
-
+--]]
 
 --[[
 print"!!!"
 
-for msg, attrs in ld:search_attribs (base, "subtree", filter, { "videoID" }) do
+for msg, attrs in ld:search (base, "subtree", filter, { "videoID" }) do
 	print_attrs (attrs)
 end
 
 print"!!!"
 
-local iter1, state1, first1 = ld:search_attribs (base, "subtree", filter, { "dn", "objectClass", "videoTitulo", })
-local iter2, state2, first2 = ld:search_attribs (base, "subtree", filter, { "dn", "videoID", "videoTitulo", })
+local iter1, state1, first1 = ld:search (base, "subtree", filter, { "dn", "objectClass", "videoTitulo", })
+local iter2, state2, first2 = ld:search (base, "subtree", filter, { "dn", "videoID", "videoTitulo", })
 
 local m1,a1 = iter1 (state1, first1)
 io.write ("\n 1 >")
