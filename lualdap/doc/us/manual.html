@@ -127,8 +127,8 @@ The argument <tt>who</tt> should be the <a href="#dn">distinguished name</a>
 of the entry that has the password to be checked against the third argument,
 <tt>password</tt>.
 The optional argument <tt>usetls</tt> is a Boolean flag indicating if
-Transport Layer Security (TLS) should be used.
-
+Transport Layer Security (TLS) should be used.<br>
+Returns a connection object or <tt>nil</tt> followed by an error string.
 </ul>
 
 
@@ -254,7 +254,7 @@ ld:add ("mydn=newuser,ou=people,dc=ldap,dc=world", {
 	abc = "qwerty",
 	tel = { "123456758", "98765432", },
 	givenName = "New User",
-}()
+})()
 
 ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
 	{ '=', givenName = "New", cn = "New", sn = "User", },
@@ -322,7 +322,7 @@ of LDAP Search Filters (RFC 2254)</a>
 
 <hr>
 <small>
-$Id: manual.html,v 1.15 2004-05-31 11:00:13 tomas Exp $
+$Id: manual.html,v 1.16 2004-11-03 11:04:45 tomas Exp $
 </small>
 
 </body>
