@@ -1,18 +1,18 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.34 2004-11-08 08:57:50 tomas Exp $
+** $Id: lualdap.c,v 1.35 2004-11-17 14:17:33 tomas Exp $
 */
 
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
 
-#include <ldap.h>
+#include "ldap.h"
 
-#include <lua.h>
-#include <lauxlib.h>
-#include <compat-5.1.h>
+#include "lua.h"
+#include "lauxlib.h"
+#include "compat-5.1.h"
 
 
 #define LUALDAP_PREFIX "LuaLDAP: "
