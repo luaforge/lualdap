@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.38 2005-02-23 22:39:25 tomas Exp $
+** $Id: lualdap.c,v 1.39 2005-04-01 16:49:12 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -383,7 +383,7 @@ static int result_message (lua_State *L) {
 	int rc;
 	conn_data *conn = (conn_data *)lua_touserdata (L, lua_upvalueindex (1));
 	int msgid = (int)lua_tonumber (L, lua_upvalueindex (2));
-	int res_code = (int)lua_tonumber (L, lua_upvalueindex (3));
+	/*int res_code = (int)lua_tonumber (L, lua_upvalueindex (3));*/
 
 	luaL_argcheck (L, conn->ld, 1, LUALDAP_PREFIX"LDAP connection is closed");
 	rc = ldap_result (conn->ld, msgid, LDAP_MSG_ONE, timeout, &res);
@@ -412,7 +412,7 @@ static int result_message (lua_State *L) {
 				lua_pushstring (L, msg);
 				lua_pushliteral (L, " ");
 				lua_pushstring (L, ldap_err2string(err));
-				lua_concat (L, 3);
+				lua_concat (L, 4);
 				ret = 2;
 		}
 		ldap_memfree (mdn);
