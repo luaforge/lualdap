@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.4 2003-06-16 16:41:15 tomas Exp $
+** $Id: lualdap.c,v 1.5 2003-06-18 16:01:55 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -14,14 +14,39 @@
 
 #define LUALDAP_PREFIX "LuaLDAP: "
 #define LUALDAP_TABLENAME "lualdap"
-#define LUALDAP_METATABLE "LuaLDAP connection"
+#define LUALDAP_CONNECTION_METATABLE "LuaLDAP connection"
+#define LUALDAP_SEARCH_METATABLE "LuaLDAP search"
+
+/* Maximum number of attributes managed in an operation */
+#ifndef LUALDAP_MAX_ATTRS
+#define LUALDAP_MAX_ATTRS 100
+#endif
+
+/* Size of buffer of NULL-terminated arrays of pointers to struct values */
+#ifndef LUALDAP_ARRAY_VALUES_SIZE
+#define LUALDAP_ARRAY_VALUES_SIZE (2 * LUALDAP_MAX_ATTRS)
+#endif
+
+/* Maximum number of values structures */
+#ifndef LUALDAP_MAX_VALUES
+#define LUALDAP_MAX_VALUES (LUALDAP_ARRAY_VALUES_SIZE / 2)
+#endif
 
 
+/* LDAP connection information */
 typedef struct {
-	int           closed;
-	int           version; /* LDAP version */
-	LDAP         *ld;      /* LDAP connection */
+	int        closed;
+	int        version; /* LDAP version */
+	LDAP      *ld;      /* LDAP connection */
 } conn_data;
+
+
+/* LDAP search context information */
+typedef struct {
+	int      closed;
+	int      conn;        /* conn_data reference */
+	int      msgid;
+} search_data;
 
 
 int lualdap_libopen (lua_State *L);
@@ -38,13 +63,33 @@ static int faildirect (lua_State *L, const char *errmsg) {
 
 
 /*
-** Get a connection object.
+** Get a connection object from the first stack position.
 */
 static conn_data *getconnection (lua_State *L) {
-	conn_data *conn = (conn_data *)luaL_checkudata (L, 1, LUALDAP_METATABLE);
+	conn_data *conn = (conn_data *)luaL_checkudata (L, 1, LUALDAP_CONNECTION_METATABLE);
 	luaL_argcheck(L, conn!=NULL, 1, LUALDAP_PREFIX"LDAP connection expected");
 	luaL_argcheck(L,!conn->closed,1,LUALDAP_PREFIX"LDAP connection is closed");
 	return conn;
+}
+
+
+/*
+** Get a search object from the first upvalue position.
+*/
+static search_data *getsearch (lua_State *L) {
+	search_data *search = (search_data *)luaL_checkudata (L, lua_upvalueindex (1), LUALDAP_SEARCH_METATABLE);
+	luaL_argcheck (L, search!=NULL, 1, LUALDAP_PREFIX"LDAP search expected");
+	luaL_argcheck (L,!search->closed,1,LUALDAP_PREFIX"LDAP search is closed");
+	return search;
+}
+
+
+/*
+** Set metatable of userdata on top of the stack.
+*/
+static void lualdap_setmeta (lua_State *L, char *name) {
+	luaL_getmetatable (L, name);
+	lua_setmetatable (L, -2);
 }
 
 
@@ -253,7 +298,7 @@ static void free_attrarray (LDAPMod **array) {
 ** @return ??
 */
 static int lualdap_add (lua_State *L) {
-	conn_data *conn = (conn_data *)getconnection (L);
+	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	LDAPMod **attrs = table2attrarray (L, 3);
 	int rc = ldap_add_ext_s (conn->ld, dn, attrs, NULL, NULL);
@@ -275,7 +320,7 @@ static int lualdap_add (lua_State *L) {
 ** @return Boolean.
 */
 static int lualdap_compare (lua_State *L) {
-	conn_data *conn = (conn_data *)getconnection (L);
+	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	const char *attr = luaL_check_string (L, 3);
 	BerValue bvalue;
@@ -303,7 +348,7 @@ static int lualdap_compare (lua_State *L) {
 ** @return Boolean.
 */
 static int lualdap_delete (lua_State *L) {
-	conn_data *conn = (conn_data *)getconnection (L);
+	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	int rc = ldap_delete_ext_s (conn->ld, dn, NULL, NULL);
 	if (rc == LDAP_SUCCESS) {
@@ -442,7 +487,7 @@ static void freemods (LDAPMod **mods) {
 ** @return Boolean.
 */
 static int lualdap_modify (lua_State *L) {
-	conn_data *conn = (conn_data *)getconnection (L);
+	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	LDAPMod **mods = getmods (L, 3);
 	int rc = ldap_modify_ext_s (conn->ld, dn, mods, NULL, NULL);
@@ -515,37 +560,58 @@ static void setattribs (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
 
 
 /*
-** Retrieve the next message and all of its attributes and values.
-** @param #1 LDAP connection.
-** @param #2 previous entry (or nil if first call).
+** Retrieve next message...
 ** @return #1 current entry (or nil if no more entries).
 ** @return #2 table with entry's attributes and values.
 */
-static int search_entries (lua_State *L) {
-	conn_data *conn = (conn_data *)lua_touserdata (L, 1);
-	LDAPMessage *entry;
+static int next_message (lua_State *L) {
+	search_data *search = getsearch (L);
+	conn_data *conn;
+	struct timeval *timeout = NULL; /* ??? function parameter ??? */
+	LDAPMessage *res;
+	int rc;
 
-	/* get next (or first) entry */
-	if (lua_isnil (L, 2)) /* first call */
-		entry = ldap_first_entry (conn->ld,
-			(LDAPMessage *)lua_topointer (L, lua_upvalueindex (1)));
-	else /* get next message */
-		entry = ldap_next_entry (conn->ld, (LDAPMessage *)lua_topointer(L,2));
+	lua_rawgeti (L, LUA_REGISTRYINDEX, search->conn);
+	conn = (conn_data *)lua_touserdata (L, -1); /* get connection */
 
-	if (entry == NULL) { /* no more messages */
-		ldap_msgfree ((LDAPMessage *)lua_topointer (L, lua_upvalueindex(1)));
+	rc = ldap_result (conn->ld, search->msgid, LDAP_MSG_ONE, timeout, &res);
+	if (rc == 0)
+		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
+	else if (rc == -1)
+		return faildirect (L, LUALDAP_PREFIX"result error");
+
+	if (rc == LDAP_RES_SEARCH_RESULT) /* last message => nil */
 		lua_pushnil (L);
-		return 1;
-	} else { /* build table of attributes and its values */
-		int tab;
-		lua_pushlightuserdata (L, entry); /* push current entry */
-		lua_newtable (L);
-		tab = lua_gettop (L);
-		setdn (L, conn->ld, entry, tab);
-		setattribs (L, conn->ld, entry, tab);
-		return 2;
+	else {
+		LDAPMessage *msg = ldap_first_message (conn->ld, res);
+		switch (ldap_msgtype (msg)) {
+			case LDAP_RES_SEARCH_ENTRY: {
+				int tab;
+				LDAPMessage *entry = ldap_first_entry (conn->ld, msg);
+
+				lua_newtable (L);
+				tab = lua_gettop (L);
+				setdn (L, conn->ld, entry, tab);
+				setattribs (L, conn->ld, entry, tab);
+				break;
+			}
+			case LDAP_RES_SEARCH_REFERENCE: {
+				/*LDAPMessage *ref = ldap_first_reference (conn->ld, msg);*/
+				break;
+			}
+			case LDAP_RES_SEARCH_RESULT:
+				lua_pushnil (L);
+				break;
+			default:
+				luaL_error (L, LUALDAP_PREFIX"error on search result chain");
+		}
+	
+		ldap_msgfree (res);
 	}
+	return 1;
 }
+
+
 
 
 /*
@@ -566,6 +632,33 @@ static int string2scope (const char *s) {
 
 
 /*
+**
+*/
+static int lualdap_search_close (lua_State *L) {
+	search_data *search = getsearch (L);
+	if (search->closed)
+		return 0;
+	luaL_unref (L, LUA_REGISTRYINDEX, search->conn);
+	lua_pushnumber (L, 1);
+	return 1;
+}
+
+
+/*
+** Create a search object.
+*/
+static void create_search (lua_State *L, int conn_index, int msgid) {
+	search_data *search = (search_data *)lua_newuserdata (L, sizeof (search_data));
+	lualdap_setmeta (L, LUALDAP_SEARCH_METATABLE);
+	search->closed = 0;
+	search->conn = LUA_NOREF;
+	search->msgid = msgid;
+	lua_pushvalue (L, conn_index);
+	search->conn = luaL_ref (L, LUA_REGISTRYINDEX);
+}
+
+
+/*
 ** Perform a search operation.
 ** @param #1 LDAP connection.
 ** @param #2 String with base entry's DN.
@@ -577,8 +670,8 @@ static int string2scope (const char *s) {
 ** @return #3 nil as first entry.
 ** The search result is defined as an upvalue of the iterator.
 */
-static int lualdap_search_attribs (lua_State *L) {
-	conn_data *conn = (conn_data *)getconnection (L);
+static int lualdap_search (lua_State *L) {
+	conn_data *conn = getconnection (L);
 	const char *base = luaL_check_string (L, 2);
 	int scope = string2scope (luaL_check_string (L, 3));
 	const char *filter = luaL_check_string (L, 4);
@@ -586,7 +679,6 @@ static int lualdap_search_attribs (lua_State *L) {
 	int attrsonly = 0;	/* types and values. parameter? */
 	int msgid;
 	int rc;
-	LDAPMessage *res;
 	struct timeval *timeout = NULL; /* ??? function parameter ??? */
 	int sizelimit = LDAP_NO_LIMIT; /* ??? function parameter ??? */
 
@@ -598,27 +690,11 @@ static int lualdap_search_attribs (lua_State *L) {
 	if (rc != LDAP_SUCCESS)
 		return faildirect (L, ldap_err2string (rc));
 
-	rc = ldap_result (conn->ld, LDAP_RES_ANY, LDAP_MSG_ALL, timeout, &res);
-	if (rc == 0)
-		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
-	else if (rc == -1)
-		return faildirect (L, LUALDAP_PREFIX"result error");
-
-	lua_pushlightuserdata (L, res); /* push result as upvalue for iterator */
-	lua_pushcclosure (L, search_entries, 1); /* push iterator function */
-	lua_pushvalue (L, 1); /* push connection as "state" to iterator */
-	lua_pushnil (L); /* push nil as "initial value" for iterator */
-
+	create_search (L, 1, msgid);
+	lua_pushcclosure (L, next_message, 1);
+	lua_pushnil (L);
+	lua_pushnil (L);
 	return 3;
-}
-
-
-/*
-** Set metatable of userdata on top of the stack.
-*/
-static void lualdap_setmeta (lua_State *L) {
-	luaL_getmetatable (L, LUALDAP_METATABLE);
-	lua_setmetatable (L, -2);
 }
 
 
@@ -632,11 +708,11 @@ static int lualdap_createmeta (lua_State *L) {
 		{"compare", lualdap_compare},
 		{"delete", lualdap_delete},
 		{"modify", lualdap_modify},
-		{"search_attribs", lualdap_search_attribs},
+		{"search", lualdap_search},
 		{NULL, NULL}
 	};
 
-	if (!luaL_newmetatable (L, LUALDAP_METATABLE))
+	if (!luaL_newmetatable (L, LUALDAP_CONNECTION_METATABLE))
 		return 0;
 
 	/* define methods */
@@ -649,6 +725,17 @@ static int lualdap_createmeta (lua_State *L) {
 
 	lua_pushliteral (L, "__index");
 	lua_pushvalue (L, -2);
+	lua_settable (L, -3);
+
+	lua_pushliteral (L, "__metatable");
+	lua_pushliteral(L,LUALDAP_PREFIX"you're not allowed to get this metatable");
+	lua_settable (L, -3);
+
+	if (!luaL_newmetatable (L, LUALDAP_SEARCH_METATABLE))
+		return 0;
+
+	lua_pushliteral (L, "__gc");
+	lua_pushcfunction (L, lualdap_search_close);
 	lua_settable (L, -3);
 
 	lua_pushliteral (L, "__metatable");
@@ -675,7 +762,7 @@ static int lualdap_open_simple (lua_State *L) {
 	int err;
 
 	/* Initialize */
-	lualdap_setmeta (L);
+	lualdap_setmeta (L, LUALDAP_CONNECTION_METATABLE);
 	conn->version = 0;
 	conn->closed = 0;
 	conn->ld = ldap_init (host, LDAP_PORT);
