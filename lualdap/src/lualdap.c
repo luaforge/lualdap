@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.13 2003-08-19 18:06:05 tomas Exp $
+** $Id: lualdap.c,v 1.14 2003-08-24 16:33:53 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -94,8 +94,7 @@ static conn_data *getconnection (lua_State *L) {
 ** Get a search object from the first upvalue position.
 */
 static search_data *getsearch (lua_State *L) {
-	search_data *search = (search_data *)luaL_checkudata (L, lua_upvalueindex (1), LUALDAP_SEARCH_METATABLE);
-	luaL_argcheck (L, search!=NULL, 1, LUALDAP_PREFIX"LDAP search expected");
+	search_data *search = (search_data *)lua_touserdata (L, lua_upvalueindex (1));
 	luaL_argcheck (L,!search->closed,1,LUALDAP_PREFIX"LDAP search is closed");
 	return search;
 }
@@ -120,12 +119,30 @@ static void strgettable (lua_State *L, char *name) {
 
 
 /*
+** Build a generic error message.
+*/
+static int error_message (lua_State *L, const char *name, const char *type) {
+	return luaL_error (L, LUALDAP_PREFIX"invalid value on option `%s': %s expected, got %s", name, type, lua_typename (L, lua_type (L, -1)));
+}
+
+
+/*
 ** Get the field named name as a string.
 ** The table should be at position 2.
 */
 static const char *strtabparam (lua_State *L, char *name, char *def) {
 	strgettable (L, name);
-	return luaL_optstring (L, -1, def);
+	if (lua_isnil (L, -1))
+		return def;
+	else {
+		const char *s = lua_tostring (L, -1);
+		if (!s) {
+			error_message (L, name, "string");
+			return NULL;
+		}
+		else
+			return s;
+	}
 }
 
 
@@ -135,7 +152,15 @@ static const char *strtabparam (lua_State *L, char *name, char *def) {
 */
 static long longtabparam (lua_State *L, char *name, int def) {
 	strgettable (L, name);
-	return (long)luaL_optnumber (L, -1, def);
+	if (lua_isnil (L, -1))
+		return def;
+	else {
+		long n = (long)lua_tonumber (L, -1);
+		if (n == 0 && !lua_isnumber (L, -1))
+			return error_message (L, name, "number");
+		else
+			return n;
+	}
 }
 
 
@@ -145,10 +170,10 @@ static long longtabparam (lua_State *L, char *name, int def) {
 */
 static int booltabparam (lua_State *L, char *name, int def) {
 	strgettable (L, name);
-	if (lua_isnoneornil (L, -1))
+	if (lua_isnil (L, -1))
 		return def;
 	else if (!lua_isboolean (L, -1))
-		return luaL_error (L, LUALDAP_PREFIX"wrong type, boolean expected");
+		return error_message (L, name, "boolean");
 	else
 		return lua_toboolean (L, -1);
 }
@@ -170,6 +195,7 @@ static void init_attrs (attrs_data *attrs) {
 ** Copy a string on top of the stack to the next berval array position.
 */
 static void str2bvals (lua_State *L, int str, attrs_data *attrs) {
+/* colocar os testes de limites dos arrays */
 	attrs->bvals[attrs->bi].bv_len = lua_strlen (L, str);
 	attrs->bvals[attrs->bi].bv_val = (char *)lua_tostring (L, str);
 	attrs->bi++;
@@ -265,6 +291,7 @@ static int table2attrarray (lua_State *L, int tab, int op, attrs_data *attrs) {
 		}
 		lua_pop (L, 1); /* pop value and leave last key on top of the stack */
 	}
+/* retirar isto daqui. colocar todos os incrementos de contadores e atribuicoes em funcoes separados. */
 	attrs->attrs[attrs->ai] = NULL;
 	return 0;
 }
@@ -399,6 +426,7 @@ static int lualdap_delete (lua_State *L) {
 ** Convert a string into an internal LDAP_MOD operation code.
 */
 static int op2code (const char *s) {
+/* testar s == NULL */
 	switch (*s) {
 		case '+':
 			return LUALDAP_MOD_ADD;
@@ -569,6 +597,7 @@ static int next_message (lua_State *L) {
 ** Convert a string to one of the possible scopes of the search.
 */
 static int string2scope (const char *s) {
+/* aceitar somente a string vazia ou NULL como default e dar erro nos outros casos */
 	if (!s)
 		return LDAP_SCOPE_DEFAULT;
 	switch (*s) {
@@ -650,8 +679,10 @@ static int lualdap_search (lua_State *L) {
 	filter = strtabparam (L, "filter", NULL);
 	scope = string2scope (strtabparam (L, "scope", NULL));
 	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
+/* trocar o timeout para um parametro so' */
 	st.tv_sec = longtabparam (L, "timeoutsec", 0);
 	st.tv_usec = longtabparam (L, "timeoutmicrosec", 0);
+/**/
 	if (st.tv_sec == 0 && st.tv_usec == 0)
 		timeout = NULL;
 	else
