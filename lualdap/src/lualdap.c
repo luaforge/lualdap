@@ -1,10 +1,11 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.8 2003-08-12 14:37:56 tomas Exp $
+** $Id: lualdap.c,v 1.9 2003-08-13 10:10:06 tomas Exp $
 */
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include <ldap.h>
 
@@ -106,6 +107,35 @@ static search_data *getsearch (lua_State *L) {
 static void lualdap_setmeta (lua_State *L, char *name) {
 	luaL_getmetatable (L, name);
 	lua_setmetatable (L, -2);
+}
+
+
+/*
+** Get the field named name of the table at position 2.
+*/
+static void strgettable (lua_State *L, char *name) {
+	lua_pushstring (L, name);
+	lua_gettable (L, 2);
+}
+
+
+/*
+** Get the field named name as a string.
+** The table should be at position 2.
+*/
+static const char *strtabparam (lua_State *L, char *name) {
+	strgettable (L, name);
+	return luaL_checkstring (L, -1);
+}
+
+
+/*
+** Get the field named name as an integer.
+** The table should be at position 2.
+*/
+static long longtabparam (lua_State *L, char *name, int def) {
+	strgettable (L, name);
+	return (long)luaL_optnumber (L, -1, def);
 }
 
 
@@ -449,7 +479,7 @@ static void setattribs (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
 
 /*
 ** Retrieve next message...
-** @return #1 current entry (or nil if no more entries).
+** @return #1 entry's distinguished name.
 ** @return #2 table with entry's attributes and values.
 */
 static int next_message (lua_State *L) {
@@ -458,6 +488,7 @@ static int next_message (lua_State *L) {
 	struct timeval *timeout = NULL; /* ??? function parameter ??? */
 	LDAPMessage *res;
 	int rc;
+	int ret = 1;
 
 	lua_rawgeti (L, LUA_REGISTRYINDEX, search->conn);
 	conn = (conn_data *)lua_touserdata (L, -1); /* get connection */
@@ -476,11 +507,14 @@ static int next_message (lua_State *L) {
 			case LDAP_RES_SEARCH_ENTRY: {
 				int tab;
 				LDAPMessage *entry = ldap_first_entry (conn->ld, msg);
-
+				char *dn = ldap_get_dn (conn->ld, entry);
+				lua_pushstring (L, dn);
+				ldap_memfree (dn);
 				lua_newtable (L);
 				tab = lua_gettop (L);
-				setdn (L, conn->ld, entry, tab);
+				/* setdn (L, conn->ld, entry, tab); */
 				setattribs (L, conn->ld, entry, tab);
+				ret = 2; /* two return values */
 				break;
 			}
 			case LDAP_RES_SEARCH_REFERENCE: {
@@ -496,10 +530,8 @@ static int next_message (lua_State *L) {
 		}
 	}
 	ldap_msgfree (res);
-	return 1;
+	return ret;
 }
-
-
 
 
 /*
@@ -554,31 +586,50 @@ static void create_search (lua_State *L, int conn_index, int msgid) {
 ** @param #4 String with search filter.
 ** @param #5 Table with names of attributes to retrieve.
 ** @return #1 Function to iterate over the result entries.
-** @return #2 LDAP connection.
+** @return #2 nil.
 ** @return #3 nil as first entry.
 ** The search result is defined as an upvalue of the iterator.
 */
 static int lualdap_search (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *base = luaL_check_string (L, 2);
-	int scope = string2scope (luaL_check_string (L, 3));
-	const char *filter = luaL_check_string (L, 4);
+	const char *base;
+	int scope;
+	const char *filter;
 	char *attrs[LUALDAP_MAX_ATTRS];
-	int attrsonly = 0;	/* types and values. parameter? */
+	int attrsonly;
 	int msgid;
 	int rc;
-	struct timeval *timeout = NULL; /* ??? function parameter ??? */
-	int sizelimit = LDAP_NO_LIMIT; /* ??? function parameter ??? */
+	struct timeval st, *timeout;
+	int sizelimit;
 
-	if (lua_istable (L, 5)) {
-		if (table2strarray (L, 5, attrs, LUALDAP_MAX_ATTRS))
-			return 2;
-	} else
+	if (!lua_istable (L, 2))
+		return luaL_error (L, LUALDAP_PREFIX"no search specification");
+	if ((base = strtabparam (L, "base")) == NULL)
+		return luaL_error (L, LUALDAP_PREFIX"base field undefined");
+	/* get attributes parameter */
+	lua_pushstring (L, "attrs");
+	lua_gettable (L, 2);
+	if (!lua_istable (L, -1))
 		attrs[0] = NULL;
+	else
+		if (table2strarray (L, lua_gettop (L), attrs, LUALDAP_MAX_ATTRS))
+			return 2;
+	/* get other parameters */
+	scope = string2scope (strtabparam (L, "scope"));
+	filter = strtabparam (L, "filter");
+	attrsonly = longtabparam (L, "attrsonly", 0);
+	st.tv_sec = longtabparam (L, "timeoutsec", 0);
+	st.tv_usec = longtabparam (L, "timeoutmicrosec", 0);
+	if (st.tv_sec == 0 && st.tv_usec == 0)
+		timeout = NULL;
+	else
+		timeout = &st;
+	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
+
 	rc = ldap_search_ext (conn->ld, base, scope, filter, attrs, attrsonly,
 		NULL, NULL, timeout, sizelimit, &msgid);
 	if (rc != LDAP_SUCCESS)
-		return faildirect (L, ldap_err2string (rc));
+		return luaL_error (L, LUALDAP_PREFIX"%s", ldap_err2string (rc));
 
 	create_search (L, 1, msgid);
 	lua_pushcclosure (L, next_message, 1);
