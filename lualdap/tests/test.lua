@@ -1,6 +1,11 @@
 #!/usr/local/bin/lua
+---------------------------------------------------------------------
 -- LuaLDAP test file.
--- $Id: test.lua,v 1.5 2003-09-01 15:59:59 tomas Exp $
+-- $Id: test.lua,v 1.6 2003-09-01 18:59:30 tomas Exp $
+-- This test will create a copy of an existing entry on the
+-- directory to work on.  This new entry will be modified,
+-- renamed and deleted at the end.
+---------------------------------------------------------------------
 
 DN_PAT = "^([^,=]+)%=([^,]+)%,(.*)$"
 
@@ -45,6 +50,7 @@ end
 -- checks for a value and throw an error if it's not the expected.
 ---------------------------------------------------------------------
 function assert2 (expected, value, msg)
+io.write('.')
 	if not msg then
 		msg = ''
 	else
@@ -104,6 +110,7 @@ end
 
 
 function check_future (ret, method, ...)
+io.write('.')
 	local ok, f = pcall (method, unpack (arg))
 	assert (ok, f)
 	assert2 ("function", type(f))
@@ -117,10 +124,6 @@ function compare_test ()
 	local _,_,rdn_name,rdn_value = string.find (BASE, DN_PAT)
 	-- comparing against the correct value.
 	check_future (true, LD.compare, LD, BASE, rdn_name, rdn_value)
-	--local ok, f = pcall (LD.compare, LD, BASE, rdn_name, rdn_value)
-	--assert (ok, f)
-	--assert2 ("function", type(f))
-	--assert2 (true, pcall (f))
 	-- comparing against a wrong value.
 	check_future (false, LD.compare, LD, BASE, rdn_name, rdn_value..'_')
 	-- comparing against an incorrect attribute name.
@@ -142,6 +145,7 @@ function search_test_1 ()
 		base = BASE,
 		scope = "onelevel",
 		sizelimit = 1,
+		filter = "(uid=pedromaia)",
 	}()
 end
 
@@ -174,8 +178,36 @@ end
 -- checking modify operation.
 ---------------------------------------------------------------------
 function modify_test ()
+	-- modifying without connection.
+	assert2 (false, pcall (LD.modify, nil, NEW_DN, {}))
+	-- modifying with a closed connection.
+	assert2 (false, pcall (LD.modify, CLOSED_LD, NEW_DN, {}))
+	-- modifying with an invalid userdata.
+	assert2 (false, pcall (LD.modify, io.output(), NEW_DN, {}))
+	-- checking invalid DN.
+	assert2 (false, pcall (LD.modify, LD, {}))
+	-- no modification to apply.
+	check_future (true, LD.modify, LD, NEW_DN)
+	-- forgotten operation on modifications table.
+	local a_attr, a_value = next (ENTRY)
+	assert2 (false, pcall (LD.modify, LD, NEW_DN, { [a_attr] = "abc"}))
+	-- modifying an unknown entry.
+	local _,_, rdn_name, rdn_value, parent_dn = string.find (NEW_DN, DN_PAT)
+	local new_rdn = rdn_name..'='..rdn_value..'_'
+	local new_dn = string.format ("%s,%s", new_rdn, parent_dn)
+	check_future (nil, LD.modify, LD, new_dn)
 	-- trying to create an undefined attribute.
-	assert2 (nil, LD:modify (NEW_DN, {'+', unknown_attribute = 'a'}))
+	check_future (nil, LD.modify, LD, NEW_DN, {'+', unknown_attribute = 'a'})
+end
+
+
+---------------------------------------------------------------------
+function count (tab)
+	local counter = 0
+	for dn, entry in LD:search (tab) do
+		counter = counter + 1
+	end
+	return counter
 end
 
 
@@ -188,7 +220,19 @@ function search_test_2 ()
 	-- checking invalid scope.
 	assert2 (false, pcall (LD.search, LD, { scope = 'BASE', base = BASE, }))
 	-- checking invalid base.
-	check_future (nil, LD.search, LD, { base = "invalid", scope = "base",  })
+	check_future (nil, LD.search, LD, { base = "invalid", scope = "base", })
+	-- checking filter.
+	local _,_, rdn_name, rdn_value, parent_dn = string.find (NEW_DN, DN_PAT)
+	local filter = string.format ("(%s=%s)", rdn_name, rdn_value)
+	assert (count{ base = BASE, scope = "subtree", filter = filter, } == 1)
+	-- checking sizelimit.
+	assert (count{ base = BASE, scope = "subtree", sizelimit = 1, } == 1)
+	-- checking attrsonly parameter.
+	for dn, entry in LD:search { base = BASE, scope = "subtree", attrsonly = true, } do
+		for attr, value in pairs (entry) do
+			assert (value == true, "attrsonly failed")
+		end
+	end
 end
 
 
