@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.2 2003-06-15 12:05:29 tomas Exp $
+** $Id: lualdap.c,v 1.3 2003-06-16 10:36:01 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -49,7 +49,47 @@ static conn_data *getconnection (lua_State *L) {
 
 
 /*
+** Create a NULL-terminated array of C-strings from a Lua table.
+** @param tab stack index of the table.
+** @return NULL-terminated array of C-strings.
+*/
+static char **table2strarray (lua_State *L, int tab) {
+	char **array;
+	int i;
+	int n = luaL_getn (L, tab);
+	array = malloc ((n+1) * sizeof(char *));
+	for (i = 0; i < n; i++) {
+		lua_rawgeti (L, tab, i+1); /* get table element */
+		if (lua_isstring (L, -1)) {
+			int len = lua_strlen (L, -1);
+			array[i] = malloc (len * sizeof(char));
+			memcpy (array[i], lua_tostring (L, -1), len);
+		} else {
+		}
+	}
+	array[n] = NULL;
+	lua_pop (L, n);
+	return array;
+}
+
+
+/*
+** Free a NULL-terminated array of C-strings.
+*/
+static void free_strarray (char **array) {
+	if (array) {
+		int i;
+		for (i = 0; array[i] != NULL; i++)
+			free (array[i]);
+		free (array);
+	}
+}
+
+
+/*
 ** Unbind from the directory.
+** @param #1 LDAP connection.
+** @return 1 in case of success; nothing when already closed.
 */
 static int lualdap_close (lua_State *L) {
 	conn_data *conn = getconnection (L);
@@ -67,10 +107,13 @@ static int lualdap_close (lua_State *L) {
 
 /*
 ** Push an attribute value (or a table of values) on top of the stack.
+** @param entry Current entry.
+** @param attr Name of entry's attribute to get values from.
+** @return 1 in case of success.
 */
 static int pushvalues (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 	int i, n;
-	struct berval **vals = ldap_get_values_len (ld, entry, attr);
+	BerValue **vals = ldap_get_values_len (ld, entry, attr);
 	if ((n = ldap_count_values_len (vals)) == 1)
 		lua_pushlstring (L, vals[0]->bv_val, vals[0]->bv_len);
 	else { /* Multiple values */
@@ -87,53 +130,69 @@ static int pushvalues (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 
 /*
 ** Store entry's distinguished name at the given table.
+** @param entry Current entry.
+** @param tab Absolute stack index of the table.
 */
 static void setdn (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
 	char *dn = ldap_get_dn (ld, entry);
 	lua_pushstring (L, "dn");
 	lua_pushstring (L, dn);
-	lua_rawset (L, tab-2);
+	lua_rawset (L, tab);
 	ldap_memfree (dn);
 }
 
 
 /*
+** Store entry's attributes and values at the given table.
+** @param entry Current entry.
+** @param tab Absolute stack index of the table.
+*/
+static void setattribs (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
+	char *attr;
+	BerElement *ber = NULL;
+	for (attr = ldap_first_attribute (ld, entry, &ber);
+		attr != NULL;
+		attr = ldap_next_attribute (ld, entry, ber))
+	{
+		lua_pushstring (L, attr);
+		pushvalues (L, ld, entry, attr);
+		lua_rawset (L, tab); /* tab[attr] = vals */
+		ldap_memfree (attr);
+	}
+	if (ber)
+		ber_free (ber, 0);
+}
+
+
+/*
 ** Retrieve the next message and all of its attributes and values.
+** @param #1 LDAP connection.
+** @param #2 previous entry (or nil if first call).
+** @return #1 current entry (or nil if no more entries).
+** @return #2 table with entry's attributes and values.
 */
 static int search_entries (lua_State *L) {
 	conn_data *conn = (conn_data *)lua_touserdata (L, 1);
-	LDAPMessage *entry = (LDAPMessage *)lua_topointer (L, 2);
+	LDAPMessage *entry;
 
-	if (lua_isnil (L, 2)) { /* first call */
-		LDAPMessage *res = (LDAPMessage *)lua_topointer (L, lua_upvalueindex (1));
-		entry = ldap_first_entry (conn->ld, res);
-	} else { /* get next message */
-		entry = (LDAPMessage *)lua_topointer (L, -1);
-		entry = ldap_next_entry (conn->ld, entry);
-	}
+	/* get next (or first) entry */
+	if (lua_isnil (L, 2)) /* first call */
+		entry = ldap_first_entry (conn->ld,
+			(LDAPMessage *)lua_topointer (L, lua_upvalueindex (1)));
+	else /* get next message */
+		entry = ldap_next_entry (conn->ld, (LDAPMessage *)lua_topointer(L,2));
 
 	if (entry == NULL) { /* no more messages */
-		LDAPMessage *res = (LDAPMessage *)lua_topointer (L, lua_upvalueindex (1));
-		ldap_msgfree (res);
+		ldap_msgfree ((LDAPMessage *)lua_topointer (L, lua_upvalueindex(1)));
 		lua_pushnil (L);
 		return 1;
 	} else { /* build table of attributes and its values */
-		char *attr;
-		BerElement *ber = NULL;
-		lua_pushlightuserdata (L, entry);
+		int tab;
+		lua_pushlightuserdata (L, entry); /* push current entry */
 		lua_newtable (L);
-		setdn (L, conn->ld, entry, -1);
-		for (attr = ldap_first_attribute (conn->ld, entry, &ber);
-			attr != NULL;
-			attr = ldap_next_attribute (conn->ld, entry, ber))
-		{
-			lua_pushstring (L, attr);
-			pushvalues (L, conn->ld, entry, attr);
-			lua_rawset (L, -3); /* attrs[attr] = vals */
-			ldap_memfree (attr);
-		}
-		if (ber)
-			ber_free (ber, 0);
+		tab = lua_gettop (L);
+		setdn (L, conn->ld, entry, tab);
+		setattribs (L, conn->ld, entry, tab);
 		return 2;
 	}
 }
@@ -157,29 +216,16 @@ static int string2scope (const char *s) {
 
 
 /*
-** Create an array of strings from a Lua table.
-*/
-static char **get_attribs (lua_State *L, int tab) {
-	char **attrs;
-	int i;
-	int n = luaL_getn (L, tab);
-	attrs = malloc ((n+1) * sizeof(char *));
-	for (i = 0; i < n; i++) {
-		lua_rawgeti (L, tab, i+1);
-		if (lua_isstring (L, -1)) {
-			int len = lua_strlen (L, -1);
-			attrs[i] = malloc (len);
-			memcpy (attrs[i], lua_tostring (L, -1), len);
-		}
-	}
-	attrs[n] = NULL;
-	lua_pop (L, n);
-	return attrs;
-}
-
-
-/*
 ** Perform a search operation.
+** @param #1 LDAP connection.
+** @param #2 String with base entry's DN.
+** @param #3 String with search scope.
+** @param #4 String with search filter.
+** @param #5 Table with names of attributes to retrieve.
+** @return #1 Function to iterate over the result entries.
+** @return #2 LDAP connection.
+** @return #3 nil as first entry.
+** The search result is defined as an upvalue of the iterator.
 */
 static int lualdap_search_attribs (lua_State *L) {
 	conn_data *conn = (conn_data *)getconnection (L);
@@ -192,18 +238,13 @@ static int lualdap_search_attribs (lua_State *L) {
 	int rc;
 	LDAPMessage *res;
 	struct timeval *timeout = NULL; /* ??? function parameter ??? */
+	int sizelimit = LDAP_NO_LIMIT; /* ??? function parameter ??? */
 
 	if (lua_istable (L, 5))
-		attrs = get_attribs (L, 5);
+		attrs = table2strarray (L, 5);
 	rc = ldap_search_ext (conn->ld, base, scope, filter, attrs, attrsonly,
-		NULL /* serverctrls */, NULL /* clientctrls */, NULL /* timeout */,
-		-1 /* sizelimit */, &msgid);
-	if (attrs) {
-		int i;
-		for (i = 0; attrs[i] != NULL; i++)
-			free (attrs[i]);
-		free (attrs);
-	}
+		NULL, NULL, timeout, sizelimit, &msgid);
+	free_strarray (attrs);
 	if (rc != LDAP_SUCCESS)
 		return faildirect (L, ldap_err2string (rc));
 
@@ -224,12 +265,17 @@ static int lualdap_search_attribs (lua_State *L) {
 
 /*
 ** Compare a value against an entry.
+** @param #1 LDAP connection.
+** @param #2 String with entry's DN.
+** @param #3 String with attribute's name.
+** @param #4 String with attribute's value.
+** @return Boolean.
 */
 static int lualdap_compare (lua_State *L) {
 	conn_data *conn = (conn_data *)getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	const char *attr = luaL_check_string (L, 3);
-	struct berval bvalue;
+	BerValue bvalue;
 	int rc;
 
 	/* Perform the comparison operation */
@@ -249,6 +295,9 @@ static int lualdap_compare (lua_State *L) {
 
 /*
 ** Delete an entry.
+** @param #1 LDAP connection.
+** @param #2 String with entry's DN.
+** @return Boolean.
 */
 static int lualdap_delete (lua_State *L) {
 	conn_data *conn = (conn_data *)getconnection (L);
@@ -282,11 +331,11 @@ static int op2code (const char *s) {
 /*
 ** Convert a table into a NULL-terminated array of berval.
 */
-static struct berval **table2bervals (lua_State *L, int tab) {
-	struct berval **values;
+static BerValue **table2bervals (lua_State *L, int tab) {
+	BerValue **values;
 	int i;
 	int n = luaL_getn (L, tab);
-	values = (struct berval **)malloc ((n+1) * sizeof(struct berval *));
+	values = (BerValue **)malloc ((n+1) * sizeof(BerValue *));
 	for (i = 0; i < n; i++) {
 		const char *s;
 		size_t len;
@@ -335,8 +384,8 @@ static LDAPMod *table2ldapmod (lua_State *L, int tab, int i) {
 		/* just one value */
 		size_t len;
 		const char *s = luaL_checklstring (L, -1, &len);
-		mod->mod_bvalues = (struct berval **)malloc (2 * sizeof (struct berval *));
-		mod->mod_bvalues[0] = (struct berval *)malloc (sizeof (struct berval));
+		mod->mod_bvalues = (BerValue **)malloc (2 * sizeof (BerValue *));
+		mod->mod_bvalues[0] = (BerValue *)malloc (sizeof (BerValue));
 		mod->mod_bvalues[0]->bv_val = (char *)malloc (len * sizeof (char));
 		memcpy (mod->mod_bvalues[0]->bv_val, s, len);
 		mod->mod_bvalues[0]->bv_len = len;
@@ -384,6 +433,10 @@ static void freemods (LDAPMod **mods) {
 
 /*
 ** Modify an entry.
+** @param #1 LDAP connection.
+** @param #2 String with entry's DN.
+** @param #3 Table with modifications to apply.
+** @return Boolean.
 */
 static int lualdap_modify (lua_State *L) {
 	conn_data *conn = (conn_data *)getconnection (L);
@@ -446,6 +499,10 @@ static int lualdap_createmeta (lua_State *L) {
 
 /*
 ** Open and initialize a connection to a server.
+** @param #1 String with hostname.
+** @param #2 String with username.
+** @param #3 String with password.
+** @return #1 Userdata with connection structure.
 */
 static int lualdap_open_simple (lua_State *L) {
 	const char *host = luaL_check_string (L, 1);
