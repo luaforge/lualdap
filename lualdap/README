@@ -1,0 +1,15 @@
+LuaLDAP is a Lua interface to the OpenLDAP library.
+
+Here goes a small description of the files in the distribution
+
+    index.html     -- Home page
+    lualdap.c      -- C source file
+    lualdap.def    -- .def file for Windows
+    lua.png        -- Lua Logo
+    Makefile       -- Makefile for Unix systems
+    manual.html    -- Reference manual
+    lualdap.lua    -- Dynamic library loader script
+    README         -- This file
+    test.lua       -- Overall API test script
+
+$Id: README,v 1.1 2003-06-15 11:55:59 tomas Exp $
