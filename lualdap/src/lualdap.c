@@ -1,12 +1,16 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.36 2005-01-10 05:58:22 tomas Exp $
+** $Id: lualdap.c,v 1.37 2005-01-13 18:02:40 tuler Exp $
 */
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef WIN32
+#include <Winsock2.h>
+#else
 #include <sys/time.h>
+#endif
 
 #include "ldap.h"
 
