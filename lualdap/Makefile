@@ -65,3 +65,5 @@ compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 
 clean:
 	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
+
+# $Id: Makefile,v 1.15 2004-11-09 14:11:56 tomas Exp $
