@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.6 2003-06-20 14:22:48 tomas Exp $
+** $Id: lualdap.c,v 1.7 2003-06-23 11:40:41 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -16,6 +16,10 @@
 #define LUALDAP_TABLENAME "lualdap"
 #define LUALDAP_CONNECTION_METATABLE "LuaLDAP connection"
 #define LUALDAP_SEARCH_METATABLE "LuaLDAP search"
+
+#define LUALDAP_MOD_ADD (LDAP_MOD_ADD | LDAP_MOD_BVALUES)
+#define LUALDAP_MOD_DEL (LDAP_MOD_DELETE | LDAP_MOD_BVALUES)
+#define LUALDAP_MOD_REP (LDAP_MOD_REPLACE | LDAP_MOD_BVALUES)
 
 /* Maximum number of attributes managed in an operation */
 #ifndef LUALDAP_MAX_ATTRS
@@ -94,27 +98,14 @@ static void lualdap_setmeta (lua_State *L, char *name) {
 
 
 /*
-** Copy a Lua string to a C string optionally indicating length.
-*/
-static char *luastrcpy (lua_State *L, int index, size_t *length) {
-	size_t len = lua_strlen (L, index);
-	char *str = malloc (len * sizeof(char));
-	memcpy (str, lua_tostring (L, index), len);
-	if (length)
-		*length = len;
-	return str;
-}
-
-
-/*
 ** Copy a string or a table of strings from Lua to a NULL-terminated array
 ** of C-strings.
 */
-static int table2strarray (lua_State *L, int tab, const char *array[], int limit) {
+static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 	if (lua_isstring (L, tab)) {
 		if (limit < 2)
 			return 0;
-		array[0] = lua_tostring (L, tab);
+		array[0] = (char *)lua_tostring (L, tab);
 		array[1] = NULL;
 	} else if (lua_istable (L, tab)) {
 		int i;
@@ -125,7 +116,7 @@ static int table2strarray (lua_State *L, int tab, const char *array[], int limit
 		for (i = 0; i < n; i++) {
 			lua_rawgeti (L, tab, i+1); /* push table element */
 			if (lua_isstring (L, -1))
-				array[i] = lua_tostring (L, -1);
+				array[i] = (char *)lua_tostring (L, -1);
 			else {
 				luaL_error (L, LUALDAP_PREFIX"invalid value");
 			}
@@ -138,64 +129,41 @@ static int table2strarray (lua_State *L, int tab, const char *array[], int limit
 
 
 /*
-** Free a NULL-terminated array of C-strings.
-*/
-static void free_strarray (char **array) {
-	if (array) {
-		int i;
-		for (i = 0; array[i] != NULL; i++)
-			free (array[i]);
-		free (array);
-	}
-}
-
-
-/*
 ** Create a NULL-terminated array of berval strings from a Lua table.
 ** It also works for one string (instead of a table with a unique value).
 ** @param tab stack index of the table (or string).
 ** @return NULL-terminated array of berval strings.
 */
-static BerValue **table2bervalarray (lua_State *L, int tab) {
-	BerValue **array;
-	int i;
-	int n;
-	if (lua_istable (L, tab)) {
-		n = luaL_getn (L, tab);
-		array = malloc ((n+1) * sizeof(BerValue *));
+static int table2bervalarray (lua_State *L, int tab, BerValue *values[], int *vi, BerValue bvals[], int *bi) {
+	if (lua_isstring (L, tab)) {
+		if (LUALDAP_ARRAY_VALUES_SIZE < ((*vi) + 1) ||
+				LUALDAP_MAX_VALUES < *bi)
+			return 0;
+		values[(*vi)++] = &bvals[*bi]; /* store pointer to new berval */
+		bvals[*bi].bv_len = lua_strlen (L, tab);
+		bvals[*bi].bv_val = (char *)lua_tostring (L, tab);
+		(*bi)++;
+	} else if (lua_istable (L, tab)) {
+		int i;
+		int n = luaL_getn (L, tab);
+		if (LUALDAP_ARRAY_VALUES_SIZE < ((*vi) + n + 1) ||
+				LUALDAP_MAX_VALUES < ((*bi) + n))
+			return 0;
 		for (i = 0; i < n; i++) {
+			values[(*vi)++] = &bvals[*bi]; /* store pointer to new berval */
 			lua_rawgeti (L, tab, i+1); /* push table element */
 			if (lua_isstring (L, -1)) {
-				array[i] = (BerValue *)malloc (sizeof (BerValue));
-				array[i]->bv_val = luastrcpy (L, -1, &(array[i]->bv_len));
+				bvals[*bi].bv_len = lua_strlen (L, tab);
+				bvals[*bi].bv_val = (char *)lua_tostring (L, tab);
+				(*bi)++;
 			} else {
 				luaL_error (L, LUALDAP_PREFIX"invalid value");
 			}
 		}
 		lua_pop (L, n);
-	} else if (lua_isstring (L, tab)) {
-		n = 1;
-		array = (BerValue **)malloc (2 * sizeof(BerValue *));
-		array[0] = (BerValue *)malloc (sizeof (BerValue));
-		array[0]->bv_val = luastrcpy (L, -1, &(array[0]->bv_len));
 	}
-	array[n] = NULL;
-	return array;
-}
-
-
-/*
-** Free a NULL-terminated array of bervalstrings.
-*/
-static void free_bervalarray (BerValue **array) {
-	if (array) {
-		int i;
-		for (i = 0; array[i] != NULL; i++) {
-			free (array[i]->bv_val);
-			free (array[i]);
-		}
-		free (array);
-	}
+	values[(*vi)++] = NULL;
+	return 1;
 }
 
 
@@ -219,74 +187,29 @@ static int lualdap_close (lua_State *L) {
 
 
 /*
-** Counts the number of string keys of a given table.
-*/
-static size_t nstrkeys (lua_State *L, int tab) {
-	int n = 0;
-	lua_pushnil (L);
-	while (lua_next(L, tab) != 0) {
-		lua_pop (L, 1);
-		if (lua_isstring (L, -1))
-			n++;
-	}
-	return n;
-}
-
-
-/*
-** Convert a pair (string, value) into a LDAPMod structure.
-** Assume that string is at index -2 and value at -1.
-*/
-static LDAPMod *attr2mod (lua_State *L, int op) {
-	LDAPMod *mod = (LDAPMod *)malloc (sizeof (LDAPMod));
-	mod->mod_op = op;
-	mod->mod_type = luastrcpy (L, -2, NULL);
-	mod->mod_bvalues = table2bervalarray (L, lua_gettop(L));
-	return mod;
-}
-
-
-/*
-** Free an LDAPMod structure.
-*/
-static void free_mod (LDAPMod *mod) {
-	if (mod->mod_type)
-		free (mod->mod_type);
-	free_bervalarray (mod->mod_bvalues);
-	free (mod);
-}
-
-
-/*
 ** Convert a Lua table into an array of attributes.
 ** An array of attributes is a NULL-terminated array of LDAPMod's.
 */
-static LDAPMod **table2attrarray (lua_State *L, int tab) {
-	LDAPMod **array;
-	size_t n = nstrkeys (L, tab);
-	array = (LDAPMod **)malloc ((n+1) * sizeof (LDAPMod *));
-	array[n] = NULL;
-	n = 0;
-	lua_pushnil (L);
+static int table2attrarray (lua_State *L, int tab, int op, LDAPMod *attrs[], LDAPMod mods[], BerValue *values[], BerValue bvals[]) {
+	int vi = 0, bi = 0;
+	int i = 0;
+	lua_pushnil (L); /* first key for lua_next */
 	while (lua_next (L, tab) != 0) {
 		if (lua_isstring (L, -1)) {
-			array[n] = attr2mod (L, LDAP_MOD_ADD);
-			n++;
+			if (LUALDAP_MAX_ATTRS < i)
+				return 0;
+			mods[i].mod_op = op;
+			mods[i].mod_type = (char *)lua_tostring (L, -2);
+			mods[i].mod_bvalues = &values[vi];
+			if (!table2bervalarray (L, -1, values,&vi, bvals,&bi))
+				return 0;
+			attrs[i] = &mods[i];
+			i++;
 		}
-		lua_pop (L, 1);
+		lua_pop (L, 1); /* pop value and leave last key on top of the stack */
 	}
-	return array;
-}
-
-
-/*
-** Free an LDAPMod array.
-*/
-static void free_attrarray (LDAPMod **array) {
-	int i;
-	for (i = 0; array[i] != NULL; i++)
-		free_mod (array[i]);
-	free (array);
+	attrs[i] = NULL;
+	return 1;
 }
 
 
@@ -300,9 +223,14 @@ static void free_attrarray (LDAPMod **array) {
 static int lualdap_add (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
-	LDAPMod **attrs = table2attrarray (L, 3);
+	LDAPMod   *attrs[LUALDAP_MAX_ATTRS + 1];
+	LDAPMod     mods[LUALDAP_MAX_ATTRS];
+	BerValue *values[LUALDAP_ARRAY_VALUES_SIZE];
+	BerValue   bvals[LUALDAP_MAX_VALUES];
+	if (lua_istable (L, 3))
+		if (!table2attrarray (L, 3, LUALDAP_MOD_ADD, attrs, mods, values, bvals))
+			return faildirect (L, LUALDAP_PREFIX"too many values/attributes");
 	int rc = ldap_add_ext_s (conn->ld, dn, attrs, NULL, NULL);
-	free_attrarray (attrs);
 	if (rc == LDAP_SUCCESS) {
 		lua_pushboolean (L, 1);
 		return 1;
@@ -365,11 +293,11 @@ static int lualdap_delete (lua_State *L) {
 static int op2code (const char *s) {
 	switch (*s) {
 		case 'a':
-			return LDAP_MOD_ADD | LDAP_MOD_BVALUES;
+			return LUALDAP_MOD_ADD;
 		case 'd':
-			return LDAP_MOD_DELETE | LDAP_MOD_BVALUES;
+			return LUALDAP_MOD_DEL;
 		case 'r':
-			return LDAP_MOD_REPLACE | LDAP_MOD_BVALUES;
+			return LUALDAP_MOD_REP;
 		default:
 			return 0; /* never reached */
 	}
@@ -675,7 +603,7 @@ static int lualdap_search (lua_State *L) {
 	const char *base = luaL_check_string (L, 2);
 	int scope = string2scope (luaL_check_string (L, 3));
 	const char *filter = luaL_check_string (L, 4);
-	const char *attrs[LUALDAP_MAX_ATTRS];
+	char *attrs[LUALDAP_MAX_ATTRS];
 	int attrsonly = 0;	/* types and values. parameter? */
 	int msgid;
 	int rc;
