@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.5 2003-06-18 16:01:55 tomas Exp $
+** $Id: lualdap.c,v 1.6 2003-06-20 14:22:48 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -107,33 +107,33 @@ static char *luastrcpy (lua_State *L, int index, size_t *length) {
 
 
 /*
-** Create a NULL-terminated array of C-strings from a Lua table.
-** It also works for one string (instead of a table with a unique value).
-** @param tab stack index of the table (or string).
-** @return NULL-terminated array of C-strings.
+** Copy a string or a table of strings from Lua to a NULL-terminated array
+** of C-strings.
 */
-static char **table2strarray (lua_State *L, int tab) {
-	char **array;
-	int i;
-	int n;
-	if (lua_istable (L, tab)) {
-		n = luaL_getn (L, tab);
-		array = malloc ((n+1) * sizeof(char *));
+static int table2strarray (lua_State *L, int tab, const char *array[], int limit) {
+	if (lua_isstring (L, tab)) {
+		if (limit < 2)
+			return 0;
+		array[0] = lua_tostring (L, tab);
+		array[1] = NULL;
+	} else if (lua_istable (L, tab)) {
+		int i;
+		int n = luaL_getn (L, tab);
+		if (limit < (n+1))
+			return 0;
+
 		for (i = 0; i < n; i++) {
 			lua_rawgeti (L, tab, i+1); /* push table element */
 			if (lua_isstring (L, -1))
-				array[i] = luastrcpy (L, -1, NULL);
+				array[i] = lua_tostring (L, -1);
 			else {
 				luaL_error (L, LUALDAP_PREFIX"invalid value");
 			}
 		}
-		lua_pop (L, n);
-	} else if (lua_isstring (L, tab)) {
-		array = malloc (2 * sizeof(char *));
-		array[0] = luastrcpy (L, -1, NULL);
+		array[n] = NULL;
+		/*lua_pop (L, n);*/
 	}
-	array[n] = NULL;
-	return array;
+	return 1;
 }
 
 
@@ -675,7 +675,7 @@ static int lualdap_search (lua_State *L) {
 	const char *base = luaL_check_string (L, 2);
 	int scope = string2scope (luaL_check_string (L, 3));
 	const char *filter = luaL_check_string (L, 4);
-	char **attrs = NULL;
+	const char *attrs[LUALDAP_MAX_ATTRS];
 	int attrsonly = 0;	/* types and values. parameter? */
 	int msgid;
 	int rc;
@@ -683,10 +683,9 @@ static int lualdap_search (lua_State *L) {
 	int sizelimit = LDAP_NO_LIMIT; /* ??? function parameter ??? */
 
 	if (lua_istable (L, 5))
-		attrs = table2strarray (L, 5);
+		table2strarray (L, 5, attrs, LUALDAP_MAX_ATTRS);
 	rc = ldap_search_ext (conn->ld, base, scope, filter, attrs, attrsonly,
 		NULL, NULL, timeout, sizelimit, &msgid);
-	free_strarray (attrs);
 	if (rc != LDAP_SUCCESS)
 		return faildirect (L, ldap_err2string (rc));
 
