@@ -58,7 +58,7 @@ $(LIBNAME): $(OBJS)
 install: lib $(LIBNAME)
 	mkdir -p $(LUA_LIB_DIR)
 	cp $(LIBNAME) $(LUA_LIB_DIR)
-	ln -f -s $(LUA_LIB_DIR)/$(LIBNAME) $(LUA_LIB_DIR)/$T$(LIB_EXT)
+	cd $(LUA_LIB_DIR); ln -f -s $(LIBNAME) $T$(LIB_EXT)
 
 compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
