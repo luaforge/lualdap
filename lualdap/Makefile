@@ -1,5 +1,5 @@
 # System's libraries directory (where binary libraries are installed)
-LIB_DIR= /usr/lib
+LUA_LIB_DIR= /usr/local/lib/lua/5.0
 # OS dependent
 #LIB_EXT= .so
 LIB_EXT= .dylib
@@ -13,8 +13,8 @@ COMPAT_DIR= ../compat
 WARN= -O2 -Wall -fPIC -W -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -ansi
 #WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I/usr/local/include/lua5 -I$(COMPAT_DIR)
-LIBS_DIR=
-LIBS= -L$(LIB_DIR) -llua -llualib -lm $(DLLIB)
+LIBS_DIR= -L/usr/lib
+LIBS= $(LIBS_DIR) -llua -llualib -lm $(DLLIB)
 CFLAGS= $(WARN) $(INCS)
 CC= gcc
 
@@ -55,18 +55,10 @@ dynamic: $(LIBNAME)
 $(LIBNAME): $(OBJS)
 	$(CC) $(CFLAGS) $(LIB_OPTION) -o $(LIBNAME) $(OBJS) $(LIBS) -lldap
 
-#so: $(SO)
-#$(SO): $(OBJ)
-#	gcc -o $@ -shared $(OBJ) $(LIBS_DIR) $(LIBS)
-
-#dylib: $(DYLIB)
-#$(DYLIB): $(OBJ)
-#	libtool -dynamic -compatibility_version $V -current_version $V -o $@ $(OBJ) $(LIBS_DIR) $(LIBS) -lcc_dynamic -lc
-
 install: lib $(LIBNAME)
-	mkdir -p $(LIB_DIR)
-	cp $(LIBNAME) $(LIB_DIR)
-	ln -f -s $(LIB_DIR)/$(LIBNAME) $(LIB_DIR)/$T$(LIB_EXT)
+	mkdir -p $(LUA_LIB_DIR)
+	cp $(LIBNAME) $(LUA_LIB_DIR)
+	ln -f -s $(LUA_LIB_DIR)/$(LIBNAME) $(LUA_LIB_DIR)/$T$(LIB_EXT)
 
 compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
