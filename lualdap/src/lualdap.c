@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.1 2003-06-15 11:55:59 tomas Exp $
+** $Id: lualdap.c,v 1.2 2003-06-15 12:05:29 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -22,13 +22,6 @@ typedef struct {
 	int           version; /* LDAP version */
 	LDAP         *ld;      /* LDAP connection */
 } conn_data;
-
-
-typedef struct {
-	int           closed;
-	LDAPMessage  *res;    /* LDAP result message */
-	LDAPMessage  *msg;    /* LDAP current message */
-} search_data;
 
 
 int lualdap_libopen (lua_State *L);
@@ -105,7 +98,7 @@ static void setdn (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
 
 
 /*
-** 
+** Retrieve the next message and all of its attributes and values.
 */
 static int search_entries (lua_State *L) {
 	conn_data *conn = (conn_data *)lua_touserdata (L, 1);
@@ -143,73 +136,6 @@ static int search_entries (lua_State *L) {
 			ber_free (ber, 0);
 		return 2;
 	}
-}
-
-
-/*
-**
-*/
-static int search_iter (lua_State *L) {
-	LDAPMessage *res;
-	conn_data *conn = (conn_data *)lua_touserdata (L, lua_upvalueindex(1));
-	struct timeval *timeout = NULL; /* ??? function parameter ??? */
-	int rc;
-	LDAPMessage *msg;
-
-	rc = ldap_result (conn->ld, LDAP_RES_ANY, LDAP_MSG_ALL, timeout, &res);
-	for (msg = ldap_first_message (conn->ld, res);
-		msg != NULL;
-		msg = ldap_next_message (conn->ld, msg))
-	{
-printf("%X (%d)\n",(int)msg, ldap_msgtype(msg));
-		switch (ldap_msgtype (msg)) {
-			case LDAP_RES_SEARCH_ENTRY: {
-				char *a;
-				BerElement *ber = NULL;
-				for (a = ldap_first_attribute (conn->ld, msg, &ber);
-					a != NULL;
-					a = ldap_next_attribute (conn->ld, msg, ber))
-				{
-					int i, n;
-					struct berval **vals = ldap_get_values_len (conn->ld, msg, a);
-char s[10];
-strncpy (s, a, 9);
-printf (">>> %s\n", s);
-					n = ldap_count_values_len (vals);
-					for (i = 0; i < n; i++) {
-char s[10];
-memcpy (s, vals[i]->bv_val, 9);
-printf (">>>> %s\n", s);
-/*
-						lua_pushlstring (L, vals[i].bv_val, vals[i].bv_len);
-*/
-					}
-					ldap_value_free_len (vals);
-					ldap_memfree (a);
-				}
-				break;
-			}
-			case LDAP_RES_SEARCH_REFERENCE:
-printf("> ref\n");
-				break;
-			case LDAP_RES_EXTENDED:
-printf("> ext\n");
-				break;
-			case LDAP_RES_EXTENDED_PARTIAL:
-printf("> ext par\n");
-				break;
-			case LDAP_RES_SEARCH_RESULT:
-printf("> result\n");
-				break;
-/*
-			case LDAP_RES_INTERMEDIATE_RESP:
-printf("> inter\n");
-				break;
-*/
-		}
-	}
-	ldap_msgfree (res);
-	return 0;
 }
 
 
@@ -337,7 +263,7 @@ static int lualdap_delete (lua_State *L) {
 
 
 /*
-**
+** Convert a string into an internal LDAP_MOD operation code.
 */
 static int op2code (const char *s) {
 	switch (*s) {
@@ -354,7 +280,7 @@ static int op2code (const char *s) {
 
 
 /*
-** Convert a table in a NULL-terminated array of berval.
+** Convert a table into a NULL-terminated array of berval.
 */
 static struct berval **table2bervals (lua_State *L, int tab) {
 	struct berval **values;
@@ -377,34 +303,36 @@ static struct berval **table2bervals (lua_State *L, int tab) {
 
 
 /*
-** Convert a table to an LDAPMod structure.
+** Convert a table into an LDAPMod structure.
 */
 static LDAPMod *table2ldapmod (lua_State *L, int tab, int i) {
 	const char *s;
 	size_t len;
 	LDAPMod *mod;
-
+	/* check table */
 	lua_rawgeti (L, tab, i);
 	luaL_checktype (L, -1, LUA_TTABLE);
 	tab = lua_gettop (L);
 	mod = (LDAPMod *)malloc (sizeof (LDAPMod));
-
+	/* get modification operation */
 	lua_pushstring (L, "op");
 	lua_rawget (L, tab);
 	s = luaL_checklstring (L, -1, &len);
 	mod->mod_op = op2code (s);
-
+	/* get type of the attribute to modify */
 	lua_pushstring (L, "type");
 	lua_rawget (L, tab);
 	s = luaL_checklstring (L, -1, &len);
 	mod->mod_type = malloc (len);
 	memcpy (mod->mod_type, s, len);
-
+	/* get the values to add, delete or replace. */
 	lua_pushstring (L, "values");
 	lua_rawget (L, tab);
 	if (lua_istable (L, -1))
+		/* a set of values */
 		mod->mod_bvalues = table2bervals (L, lua_gettop (L));
 	else {
+		/* just one value */
 		size_t len;
 		const char *s = luaL_checklstring (L, -1, &len);
 		mod->mod_bvalues = (struct berval **)malloc (2 * sizeof (struct berval *));
