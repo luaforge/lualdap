@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.31 2004-11-03 11:01:11 tomas Exp $
+** $Id: lualdap.c,v 1.32 2004-11-03 11:05:28 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -972,14 +972,6 @@ int luaopen_lualdap (lua_State *L) {
 
 	lualdap_createmeta (L);
 	luaL_openlib (L, LUALDAP_TABLENAME, lualdap, 0);
-/*
-	lua_newtable (L);
-	lualdap = lua_gettop (L);
-	lua_pushliteral (L, "open_simple");
-	lua_pushcfunction (L, lualdap_open_simple);
-	lua_rawset (L, -3);
-	lua_setglobal (L, LUALDAP_TABLENAME);
-*/
 
 	return 1;
 }
