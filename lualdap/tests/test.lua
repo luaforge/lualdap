@@ -6,7 +6,7 @@
 -- renamed and deleted at the end.
 --
 -- See Copyright Notice in license.html
--- $Id: test.lua,v 1.10 2004-01-15 13:30:15 tomas Exp $
+-- $Id: test.lua,v 1.11 2004-05-31 11:00:13 tomas Exp $
 ---------------------------------------------------------------------
 
 DN_PAT = "^([^,=]+)%=([^,]+)%,(.*)$"
@@ -49,7 +49,7 @@ end
 
 
 ---------------------------------------------------------------------
--- checks for a value and throw an error if it's not the expected.
+-- checks for a value and throw an error if it is not the expected.
 ---------------------------------------------------------------------
 function assert2 (expected, value, msg)
 io.write('.')
@@ -101,7 +101,7 @@ function basic_test ()
 	local _,_,rdn_name,rdn_value = string.find (BASE, DN_PAT)
 	assert2 (false, pcall (ld.compare, ld, BASE, rdn_name, rdn_value),
 		"permitting the use of a closed connection")
-	-- it's ok to close a closed object, but nil is returned instead of 1.
+	-- it is ok to close a closed object, but nil is returned instead of 1.
 	assert2 (nil, ld:close())
 	-- trying to connect to an invalid host.
 	assert2 (nil, lualdap.open_simple ("unknown-server"), "this should be an error")

@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.26 2003-12-02 14:25:09 tomas Exp $
+** $Id: lualdap.c,v 1.27 2004-05-31 11:00:13 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -676,6 +676,7 @@ static int next_message (lua_State *L) {
 				LDAPMessage *ref = ldap_first_reference (conn->ld, msg);
 				push_dn (L, conn->ld, ref); /* is this supposed to work? */
 				lua_pushnil (L);
+				ret = 2; /* two return values */
 				break;
 			}
 			case LDAP_RES_SEARCH_RESULT:
@@ -905,6 +906,7 @@ static int lualdap_createmeta (lua_State *L) {
 ** @param #1 String with hostname.
 ** @param #2 String with username.
 ** @param #3 String with password.
+** @param #4 Boolean indicating if TLS must be used.
 ** @return #1 Userdata with connection structure.
 */
 static int lualdap_open_simple (lua_State *L) {
@@ -953,5 +955,5 @@ int lualdap_libopen (lua_State *L) {
 	lua_rawset (L, -3);
 	lua_setglobal (L, LUALDAP_TABLENAME);
 
-	return 0;
+	return 1;
 }
