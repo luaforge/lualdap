@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.21 2003-09-02 17:01:29 tomas Exp $
+** $Id: lualdap.c,v 1.22 2003-09-03 09:48:44 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -371,6 +371,7 @@ static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 ** Get the result message of an operation.
 ** #1 upvalue == connection
 ** #2 upvalue == msgid
+** #3 upvalue == result code of the message (ADD, DEL etc.) to be received.
 */
 static int result_message (lua_State *L) {
 	struct timeval *timeout = NULL; /* ??? function parameter ??? */
@@ -676,6 +677,7 @@ static int next_message (lua_State *L) {
 				break;
 			}
 			case LDAP_RES_SEARCH_RESULT:
+				search->msgid = -1;
 				lua_pushnil (L);
 				break;
 			default:
