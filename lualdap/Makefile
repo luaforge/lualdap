@@ -9,7 +9,7 @@ PKG= lualdap-$(VERSION)
 TAR_FILE= $(PKG).tar.gz
 ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
-	lualdap.c loader.tmpl \
+	lualdap.c lualdap.def loader.tmpl \
 	test.lua \
 	index.html manual.html license.html lualdqp.png 
 
