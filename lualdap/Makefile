@@ -1,5 +1,7 @@
 # System's libraries directory (where binary libraries are installed)
-LUA_LIB_DIR= /usr/local/lib/lua/5.0
+LUA_LIBDIR= /usr/local/lib/lua/5.0
+# Lua includes directory
+LUA_INC= /usr/local/include/lua5
 # OS dependent
 #LIB_EXT= .so
 LIB_EXT= .dylib
@@ -12,7 +14,7 @@ DLLIB= -ldl
 COMPAT_DIR= ../compat
 WARN= -O2 -Wall -fPIC -W -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -ansi
 #WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
-INCS= -I/usr/local/include/lua5 -I$(COMPAT_DIR)
+INCS= -I$(LUA_INC) -I$(COMPAT_DIR)
 LIBS_DIR= -L/usr/lib
 LIBS= $(LIBS_DIR) -llua -llualib -lm $(DLLIB)
 CFLAGS= $(WARN) $(INCS)
@@ -56,9 +58,9 @@ $(LIBNAME): $(OBJS)
 	$(CC) $(CFLAGS) $(LIB_OPTION) -o $(LIBNAME) $(OBJS) $(LIBS) -lldap
 
 install: lib $(LIBNAME)
-	mkdir -p $(LUA_LIB_DIR)
-	cp $(LIBNAME) $(LUA_LIB_DIR)
-	cd $(LUA_LIB_DIR); ln -f -s $(LIBNAME) $T$(LIB_EXT)
+	mkdir -p $(LUA_LIBDIR)
+	cp $(LIBNAME) $(LUA_LIBDIR)
+	cd $(LUA_LIBDIR); ln -f -s $(LIBNAME) $T$(LIB_EXT)
 
 compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
@@ -66,4 +68,4 @@ compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 clean:
 	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
 
-# $Id: Makefile,v 1.16 2004-11-24 15:26:40 tomas Exp $
+# $Id: Makefile,v 1.17 2005-01-19 14:53:14 tomas Exp $
