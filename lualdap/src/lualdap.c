@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.22 2003-09-03 09:48:44 tomas Exp $
+** $Id: lualdap.c,v 1.23 2003-09-03 10:40:27 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -49,7 +49,6 @@ typedef struct {
 
 /* LDAP search context information */
 typedef struct {
-	int      closed;
 	int      conn;        /* conn_data reference */
 	int      msgid;
 } search_data;
@@ -97,7 +96,7 @@ static conn_data *getconnection (lua_State *L) {
 static search_data *getsearch (lua_State *L) {
 	/* don't need to check upvalue's integrity */
 	search_data *search = (search_data *)lua_touserdata (L, lua_upvalueindex (1));
-	luaL_argcheck (L,!search->closed,1,LUALDAP_PREFIX"LDAP search is closed");
+	luaL_argcheck (L,search->conn!=LUA_NOREF,1,LUALDAP_PREFIX"LDAP search is closed");
 	return search;
 }
 
@@ -713,23 +712,23 @@ static int string2scope (lua_State *L, const char *s) {
 ** Close the search object.
 */
 static int lualdap_search_close (lua_State *L) {
-	search_data *search = (search_data *)luaL_checkudata (L, lua_upvalueindex (1), LUALDAP_SEARCH_METATABLE);
+	search_data *search = (search_data *)luaL_checkudata (L, 1, LUALDAP_SEARCH_METATABLE);
 	luaL_argcheck (L, search!=NULL, 1, LUALDAP_PREFIX"LDAP search expected");
-	if (search->closed)
+	if (search->conn == LUA_NOREF)
 		return 0;
 	luaL_unref (L, LUA_REGISTRYINDEX, search->conn);
+	search->conn = LUA_NOREF;
 	lua_pushnumber (L, 1);
 	return 1;
 }
 
 
 /*
-** Create a search object.
+** Create a search object and leaves it on top of the stack.
 */
 static void create_search (lua_State *L, int conn_index, int msgid) {
 	search_data *search = (search_data *)lua_newuserdata (L, sizeof (search_data));
 	lualdap_setmeta (L, LUALDAP_SEARCH_METATABLE);
-	search->closed = 0;
 	search->conn = LUA_NOREF;
 	search->msgid = msgid;
 	lua_pushvalue (L, conn_index);
