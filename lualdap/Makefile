@@ -13,13 +13,13 @@ WARN= -O2 -Wall -fPIC -W -Waggregate-return -Wcast-align -Wmissing-prototypes -W
 #WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I/usr/local/include/lua5 -I$(COMPAT_DIR)
 LIBS_DIR=
-LIBS= -L$(LIB_DIR) -lldap -llua -llualib -lm $(DLLIB)
+LIBS= -L$(LIB_DIR) -llua -llualib -lm $(DLLIB)
 CFLAGS= $(WARN) $(INCS)
 CC= gcc
 
 T= lualdap
 V= 1.0
-VERSION= $Va
+VERSION= $Vb
 PKG= lualdap-$(VERSION)
 TAR_FILE= $(PKG).tar.gz
 ZIP_FILE= $(PKG).zip
@@ -49,7 +49,7 @@ lib: $(LIB)
 
 dynamic: $(LIBNAME)
 $(LIBNAME): $(OBJS)
-	$(CC) $(CFLAGS) $(LIB_OPTION) -o $(LIBNAME) $(OBJS) $(LIBS)
+	$(CC) $(CFLAGS) $(LIB_OPTION) -o $(LIBNAME) $(OBJS) $(LIBS) -lldap
 
 #so: $(SO)
 #$(SO): $(OBJ)
