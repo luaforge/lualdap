@@ -10,13 +10,13 @@ LIB_OPTION= -dynamiclib #for MacOS X
 
 # On FreeBSD systems, the following line should be commented
 DLLIB= -ldl
+LUA_LIBS= -L/usr/lib -llua -llualib -lm
 
 COMPAT_DIR= ../compat
 WARN= -O2 -Wall -fPIC -W -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -ansi
 #WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I$(LUA_INC) -I$(COMPAT_DIR)
-LIBS_DIR= -L/usr/lib
-LIBS= $(LIBS_DIR) -llua -llualib -lm $(DLLIB)
+LIBS= $(LUA_LIBS) $(DLLIB)
 CFLAGS= $(WARN) $(INCS)
 CC= gcc
 
@@ -68,4 +68,4 @@ compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 clean:
 	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
 
-# $Id: Makefile,v 1.17 2005-01-19 14:53:14 tomas Exp $
+# $Id: Makefile,v 1.18 2005-02-01 16:52:04 tomas Exp $
