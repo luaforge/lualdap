@@ -1,10 +1,12 @@
 #!/usr/local/bin/lua
 ---------------------------------------------------------------------
 -- LuaLDAP test file.
--- $Id: test.lua,v 1.8 2003-09-03 11:07:51 tomas Exp $
 -- This test will create a copy of an existing entry on the
 -- directory to work on.  This new entry will be modified,
 -- renamed and deleted at the end.
+--
+-- See Copyright Notice in license.html
+-- $Id: test.lua,v 1.9 2003-12-02 14:25:09 tomas Exp $
 ---------------------------------------------------------------------
 
 DN_PAT = "^([^,=]+)%=([^,]+)%,(.*)$"

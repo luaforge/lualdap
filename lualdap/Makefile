@@ -11,7 +11,7 @@ ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
 	lualdap.c loader.tmpl \
 	test.lua \
-	index.html manual.html lua.png 
+	index.html manual.html license.html lua.png 
 
 AR= ar rcu
 RANLIB= ranlib
@@ -45,4 +45,4 @@ $(DYLIB): $(OBJ)
 	gcc -o $@ -dynamiclib $(OBJ) $(LIBS_DIR) $(LIBS)
 
 clean:
-	rm -f $(OBJ) $(LIB) $(SO) $(DYLIB) $(DLL)
+	rm -f $(OBJ) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)

@@ -1,5 +1,6 @@
+<! See Copyright Notice in license.html>
 <html>
-<!$Id: manual.html,v 1.9 2003-09-03 08:04:30 tomas Exp $>
+<!$Id: manual.html,v 1.10 2003-12-02 14:25:09 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -37,6 +38,34 @@ ul { list-style-type: disc };
 <a name="introduction"></a>
 <h2>Introduction</h2>
 <p>
+LuaLDAP is a simple interface from Lua to an LDAP client
+(in fact it's a bind to
+<a href="http://www.openldap.org">OpenLDAP</a>
+client).
+</p>
+<p>
+LuaLDAP defines one single global variable, a table called
+<tt>lualdap</tt>
+which holds the function that creates a connection object.
+To initiate an LDAP session is required a hostname and a user
+identification.
+If desired Transport Layer Security (TLS) can be used throughout
+the connection.
+</p>
+<p>
+With a connection object any operation can be performed on the
+directory such as value comparation, addition of new entries,
+modification of attributes on existing entries, remotion and
+the most common of all: searches.
+Entries are represented as Lua tables; attributes are it's
+fields.
+Attribute's values can be strings or tables of strings when
+they have multiple values on the directory.
+</p>
+<p>
+LuaLDAP is
+<a href="license.html">free software</a>.
+</p>
 
 
 <a name="attributes">
@@ -290,7 +319,7 @@ of LDAP Search Filters (RFC 2254)</a>
 <hr>
 <small>
 Last modified on
-Mon Sep  1 15:54:23 BRT 2003
+Tue Dec  2 14:45:25 BRST 2003
 </small>
 
 </body>

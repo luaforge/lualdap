@@ -1,6 +1,7 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.25 2003-09-04 15:41:53 tomas Exp $
+** See Copyright Notice in license.html
+** $Id: lualdap.c,v 1.26 2003-12-02 14:25:09 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -810,6 +811,39 @@ static int lualdap_search (lua_State *L) {
 
 
 /*
+** Return the name of the object's metatable.
+** This function is used by `tostring'.
+*/
+static int lualdap_conn_tostring (lua_State *L) {
+	char buff[100];
+	conn_data *conn = (conn_data *)lua_touserdata (L, 1);
+	if (conn->ld == NULL)
+		strcpy (buff, "closed");
+	else
+		sprintf (buff, "%p", conn);
+	lua_pushfstring (L, "%s (%s)", LUALDAP_CONNECTION_METATABLE, buff);
+	return 1;
+}
+
+
+/*
+** Return the name of the object's metatable.
+** This function is used by `tostring'.
+*/
+static int lualdap_search_tostring (lua_State *L) {
+	char buff[100];
+	search_data *search = (search_data *)lua_touserdata (L, 1);
+	luaL_argcheck (L,search->conn!=LUA_NOREF,1,LUALDAP_PREFIX"LDAP search is closed");
+	if (search->conn == LUA_NOREF)
+		strcpy (buff, "closed");
+	else
+		sprintf (buff, "%p", search);
+	lua_pushfstring (L, "%s (%s)", LUALDAP_SEARCH_METATABLE, buff);
+	return 1;
+}
+
+
+/*
 ** Create a metatable.
 */
 static int lualdap_createmeta (lua_State *L) {
@@ -839,6 +873,10 @@ static int lualdap_createmeta (lua_State *L) {
 	lua_pushvalue (L, -2);
 	lua_settable (L, -3);
 
+	lua_pushliteral (L, "__tostring");
+	lua_pushcfunction (L, lualdap_conn_tostring);
+	lua_settable (L, -3);
+
 	lua_pushliteral (L, "__metatable");
 	lua_pushliteral(L,LUALDAP_PREFIX"you're not allowed to get this metatable");
 	lua_settable (L, -3);
@@ -848,6 +886,10 @@ static int lualdap_createmeta (lua_State *L) {
 
 	lua_pushliteral (L, "__gc");
 	lua_pushcfunction (L, lualdap_search_close);
+	lua_settable (L, -3);
+
+	lua_pushliteral (L, "__tostring");
+	lua_pushcclosure (L, lualdap_search_tostring, 1);
 	lua_settable (L, -3);
 
 	lua_pushliteral (L, "__metatable");

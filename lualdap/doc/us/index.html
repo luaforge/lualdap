@@ -1,5 +1,6 @@
+<! See Copyright Notice in license.html>
 <html>
-<!$Id: index.html,v 1.7 2003-09-12 18:50:39 tomas Exp $>
+<!$Id: index.html,v 1.8 2003-12-02 14:25:09 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -28,6 +29,7 @@ ul { list-style-type: disc };
 <a href=#new>what's new</a> &middot;
 <a href=#installation>installation</a> &middot;
 <a href="manual.html">manual</a> &middot;
+<a href="license.html">license</a> &middot;
 <a href=#hist>history</a>
 </small></center>
 <p>
@@ -37,21 +39,22 @@ ul { list-style-type: disc };
 <h2>Contents</h2>
 <p>
 <ul>
-<li> <a href=#over>Overview</a>
-<li> <a href=#version>Current Version</a>
-<li> <a href=#download>Download</a>
-<li> <a href=#new>What's new</a>
-<li> <a href=#installation>Installation</a>
-<li> <a href="manual.html">User's manual</a>
-	<ul>
-	<li> <a href="manual.html#introduction">Introduction</a>
-	<li> <a href="#attributes">attributes</a>
-	<li> <a href="#dn">DN</a>
-	<li> <a href="#initialization_functions">initialization</a>
-	<li> <a href="#connection_object">connection</a>
-	<li> <a href="manual.html#examples">Examples</a>
-	</ul>
-<li> <a href=#hist>History</a>
+  <li> <a href=#over>Overview</a>
+  <li> <a href=#version>Current Version</a>
+  <li> <a href=#download>Download</a>
+  <li> <a href=#new>What's new</a>
+  <li> <a href=#installation>Installation</a>
+  <li> <a href="manual.html">User's manual</a>
+    <ul>
+      <li> <a href="manual.html#introduction">Introduction</a>
+      <li> <a href="#attributes">attributes</a>
+      <li> <a href="#dn">DN</a>
+      <li> <a href="#initialization_functions">initialization</a>
+      <li> <a href="#connection_object">connection</a>
+      <li> <a href="manual.html#examples">Examples</a>
+    </ul>
+  <li> <a href="license.html">Copyright & License</a>
+  <li> <a href=#hist>History</a>
 </ul>
 </p>
 
@@ -59,7 +62,7 @@ ul { list-style-type: disc };
 <a name=over>
 <h2>Overview</h2>
 <p>
-LuaLDAP is simple interface from Lua to an LDAP client
+LuaLDAP is a simple interface from Lua to an LDAP client
 (in fact it's a bind to <a href="http://www.openldap.org">OpenLDAP</a> client).
 It enables a Lua program to:
 <ul>
@@ -67,12 +70,17 @@ It enables a Lua program to:
 <li> Execute any operation (search, add, compare, delete, modify and rename);
 <li> Retrieve entries and references of the search result.
 </ul>
+</p>
+<p>
+LuaLDAP is
+<a href="license.html">free software</a>.
 
 
 <a name=version>
 <h2>Current version</h2>
 <p>
 Current version is 1.0 alpha.
+It was developed for Lua 5.0 and OpenLDAP 2.1.
 </p>
 
 
@@ -114,6 +122,13 @@ You can download the library from the
 <h2>History</h2>
 
 <p>
+LuaLDAP was designed by Roberto Ierusalimschy, Andr&eacute; Carregal
+and Tom&aacute;s Guisasola for
+<a href="http://www.keplerproject.org">The Kepler Project</a>
+that keeps its copyright.
+It was implemented by Tom&aacute;s Guisasola.
+</p>
+<p>
 LuaLDAP development was sponsored by 
 <a href="http://www.fabricadigital.com.br">Fábrica Digital</a>
 and FINEP.
@@ -127,6 +142,7 @@ and FINEP.
 <a href=#new>what's new</a> &middot;
 <a href=#installation>installation</a> &middot;
 <a href="manual.html">manual</a> &middot;
+<a href="license.html">license</a> &middot;
 <a href=#hist>history</a>
 </small></center>
 <p>
