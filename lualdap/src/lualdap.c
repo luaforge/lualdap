@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.27 2004-05-31 11:00:13 tomas Exp $
+** $Id: lualdap.c,v 1.28 2004-07-09 16:16:32 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -647,7 +647,7 @@ static int next_message (lua_State *L) {
 	struct timeval *timeout = NULL; /* ??? function parameter ??? */
 	LDAPMessage *res;
 	int rc;
-	int ret = 1;
+	int ret;
 
 	lua_rawgeti (L, LUA_REGISTRYINDEX, search->conn);
 	conn = (conn_data *)lua_touserdata (L, -1); /* get connection */
@@ -660,7 +660,7 @@ static int next_message (lua_State *L) {
 	else if (rc == LDAP_RES_SEARCH_RESULT) { /* last message => nil */
 		/* close search object to avoid reuse */
 		search_close (L, search);
-		lua_pushnil (L);
+		ret = 0;
 	} else {
 		LDAPMessage *msg = ldap_first_message (conn->ld, res);
 		switch (ldap_msgtype (msg)) {
@@ -682,7 +682,7 @@ static int next_message (lua_State *L) {
 			case LDAP_RES_SEARCH_RESULT:
 				/* close search object to avoid reuse */
 				search_close (L, search);
-				lua_pushnil (L);
+				ret = 0;
 				break;
 			default:
 				ldap_msgfree (res);
@@ -805,9 +805,7 @@ static int lualdap_search (lua_State *L) {
 
 	create_search (L, 1, msgid);
 	lua_pushcclosure (L, next_message, 1);
-	lua_pushnil (L);
-	lua_pushnil (L);
-	return 3;
+	return 1;
 }
 
 
