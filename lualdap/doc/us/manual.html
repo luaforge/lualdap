@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.8 2003-09-01 18:58:18 tomas Exp $>
+<!$Id: manual.html,v 1.9 2003-09-03 08:04:30 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -199,8 +199,8 @@ require "lualdap"
 
 ld = assert (lualdap.open_simple ("ldap.server", "mydn=manoeljoaquim,ou=people,dc=ldap,dc=world", "mysecurepassword"))
 
-for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" }() do
-	io.write (string.format ("\t[%s]\n", dn)
+for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" } do
+	io.write (string.format ("\t[%s]\n", dn))
 	for name, values in pairs (attribs) do
 		io.write ("["..name.."] : ")
 		if type (values) == "string" then
