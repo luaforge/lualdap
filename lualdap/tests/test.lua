@@ -6,7 +6,7 @@
 -- renamed and deleted at the end.
 --
 -- See Copyright Notice in license.html
--- $Id: test.lua,v 1.9 2003-12-02 14:25:09 tomas Exp $
+-- $Id: test.lua,v 1.10 2004-01-15 13:30:15 tomas Exp $
 ---------------------------------------------------------------------
 
 DN_PAT = "^([^,=]+)%=([^,]+)%,(.*)$"
@@ -144,13 +144,31 @@ end
 -- checking basic search operation.
 ---------------------------------------------------------------------
 function search_test_1 ()
+	local iter = LD:search {
+		base = BASE,
+		scope = "onelevel",
+		sizelimit = 1,
+		filter = "(uid=pedromaia)",
+	}
+	assert2 ("function", type(iter))
+	collectgarbage()
+	CONN_OK (LD)
+	local dn, entry = iter ()
+	assert2 ("string", type(dn))
+	assert2 ("table", type(entry))
+	collectgarbage()
+	assert2 ("function", type(iter))
+	CONN_OK (LD)
+
 	DN, ENTRY = LD:search {
 		base = BASE,
 		scope = "onelevel",
 		sizelimit = 1,
 		filter = "(uid=pedromaia)",
 	}()
-collectgarbage()
+	collectgarbage()
+	assert2 ("string", type(DN))
+	assert2 ("table", type(ENTRY))
 end
 
 
@@ -219,6 +237,23 @@ end
 -- checking advanced search operation.
 ---------------------------------------------------------------------
 function search_test_2 ()
+	local iter = LD:search {
+		base = BASE,
+		scope = "onelevel",
+		sizelimit = 1,
+		filter = "(uid=pedromaia)",
+	}
+	assert2 ("function", type(iter))
+	collectgarbage ()
+	assert2 ("function", type(iter))
+	local dn, entry = iter ()
+	assert2 ("string", type(dn))
+	assert2 ("table", type(entry))
+	collectgarbage ()
+	assert2 ("function", type(iter))
+	iter = nil
+	collectgarbage ()
+
 	-- checking no search specification.
 	assert2 (false, pcall (LD.search, LD))
 	-- checking invalid scope.
@@ -247,6 +282,7 @@ function search_test_2 ()
 	assert (type(dn) == "nil")
 	assert (type(e1) == "nil")
 	assert2 (false, pcall (iter))
+	iter = nil
 	-- checking collecting search objects.
 	local dn, entry = LD:search { base = BASE, scope = "base" }()
 	collectgarbage()
