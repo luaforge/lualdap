@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.33 2004-11-03 14:12:24 tomas Exp $
+** $Id: lualdap.c,v 1.34 2004-11-08 08:57:50 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -67,7 +67,7 @@ typedef struct {
 } attrs_data;
 
 
-int lualdap_libopen (lua_State *L);
+int luaopen_lualdap (lua_State *L);
 
 
 /*
@@ -105,7 +105,7 @@ static search_data *getsearch (lua_State *L) {
 /*
 ** Set metatable of userdata on top of the stack.
 */
-static void lualdap_setmeta (lua_State *L, char *name) {
+static void lualdap_setmeta (lua_State *L, const char *name) {
 	luaL_getmetatable (L, name);
 	lua_setmetatable (L, -2);
 }
@@ -122,7 +122,7 @@ static int option_error (lua_State *L, const char *name, const char *type) {
 /*
 ** Get the field called name of the table at position 2.
 */
-static void strgettable (lua_State *L, char *name) {
+static void strgettable (lua_State *L, const char *name) {
 	lua_pushstring (L, name);
 	lua_gettable (L, 2);
 }
@@ -132,7 +132,7 @@ static void strgettable (lua_State *L, char *name) {
 ** Get the field named name as a string.
 ** The table MUST be at position 2.
 */
-static const char *strtabparam (lua_State *L, char *name, char *def) {
+static const char *strtabparam (lua_State *L, const char *name, char *def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
@@ -149,7 +149,7 @@ static const char *strtabparam (lua_State *L, char *name, char *def) {
 ** Get the field named name as an integer.
 ** The table MUST be at position 2.
 */
-static long longtabparam (lua_State *L, char *name, int def) {
+static long longtabparam (lua_State *L, const char *name, int def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
@@ -164,7 +164,7 @@ static long longtabparam (lua_State *L, char *name, int def) {
 ** Get the field named name as a double.
 ** The table MUST be at position 2.
 */
-static double numbertabparam (lua_State *L, char *name, double def) {
+static double numbertabparam (lua_State *L, const char *name, double def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
@@ -179,7 +179,7 @@ static double numbertabparam (lua_State *L, char *name, double def) {
 ** Get the field named name as a boolean.
 ** The table MUST be at position 2.
 */
-static int booltabparam (lua_State *L, char *name, int def) {
+static int booltabparam (lua_State *L, const char *name, int def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
