@@ -1,4 +1,4 @@
-WARN= -Wall -Wmissing-prototypes -Wmissing-declarations
+WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I/usr/local/include/lua5
 LIBS_DIR=
 LIBS= -llua.5.0 -llualib.5.0 -lm -lldap -ldl
