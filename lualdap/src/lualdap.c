@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.18 2003-08-27 16:36:11 tomas Exp $
+** $Id: lualdap.c,v 1.19 2003-08-29 14:24:53 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -136,14 +136,11 @@ static const char *strtabparam (lua_State *L, char *name, char *def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
+	else if (lua_isstring (L, -1))
+		return lua_tostring (L, -1);
 	else {
-		const char *s = lua_tostring (L, -1);
-		if (!s) {
-			option_error (L, name, "string");
-			return NULL;
-		}
-		else
-			return s;
+		option_error (L, name, "string");
+		return NULL;
 	}
 }
 
@@ -156,13 +153,10 @@ static long longtabparam (lua_State *L, char *name, int def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
-	else {
-		long n = (long)lua_tonumber (L, -1);
-		if (n == 0 && !lua_isnumber (L, -1))
-			return option_error (L, name, "number");
-		else
-			return n;
-	}
+	else if (lua_isnumber (L, -1))
+		return (long)lua_tonumber (L, -1);
+	else
+		return option_error (L, name, "number");
 }
 
 
@@ -174,13 +168,10 @@ static double numbertabparam (lua_State *L, char *name, double def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
-	else {
-		double n = lua_tonumber (L, -1);
-		if (n == 0 && !lua_isnumber (L, -1))
-			return option_error (L, name, "number");
-		else
-			return n;
-	}
+	else if (lua_isnumber (L, -1))
+		return lua_tonumber (L, -1);
+	else
+		return option_error (L, name, "number");
 }
 
 
@@ -192,10 +183,10 @@ static int booltabparam (lua_State *L, char *name, int def) {
 	strgettable (L, name);
 	if (lua_isnil (L, -1))
 		return def;
-	else if (!lua_isboolean (L, -1))
-		return option_error (L, name, "boolean");
-	else
+	else if (lua_isboolean (L, -1))
 		return lua_toboolean (L, -1);
+	else
+		return option_error (L, name, "boolean");
 }
 
 
@@ -221,7 +212,7 @@ static void A_init (attrs_data *attrs) {
 
 
 /*
-** Store a string on the attributes structure.
+** Store the string on top of the stack on the attributes structure.
 ** Increment the bvals counter.
 */
 static BerValue *A_setbval (lua_State *L, attrs_data *a, const char *n) {
@@ -377,6 +368,69 @@ static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 
 
 /*
+** Get the result message of an operation.
+** #1 upvalue == connection
+** #2 upvalue == msgid
+*/
+static int result_message (lua_State *L) {
+	struct timeval *timeout = NULL; /* ??? function parameter ??? */
+	LDAPMessage *res;
+	int rc;
+	conn_data *conn = (conn_data *)lua_touserdata (L, lua_upvalueindex (1));
+	int msgid = (int)lua_tonumber (L, lua_upvalueindex (2));
+	int res_code = (int)lua_tonumber (L, lua_upvalueindex (3));
+
+	luaL_argcheck (L,!conn->closed,1,LUALDAP_PREFIX"LDAP connection is closed");
+	rc = ldap_result (conn->ld, msgid, LDAP_MSG_ONE, timeout, &res);
+	if (rc == 0)
+		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
+	else if (rc == -1)
+		return faildirect (L, LUALDAP_PREFIX"result error");
+	else if (rc != res_code)
+		return faildirect (L, ldap_err2string (rc));
+	else {
+		int err, ret = 1;
+		char *mdn, *msg;
+		rc = ldap_parse_result (conn->ld, res, &err, &mdn, &msg, NULL, NULL, 1);
+		if (rc != LDAP_SUCCESS)
+			return faildirect (L, ldap_err2string (rc));
+		switch (err) {
+			case LDAP_SUCCESS:
+			case LDAP_COMPARE_TRUE:
+				lua_pushboolean (L, 1);
+				break;
+			case LDAP_COMPARE_FALSE:
+				lua_pushboolean (L, 0);
+				break;
+			default:
+				lua_pushnil (L);
+				lua_pushstring (L, LUALDAP_PREFIX);
+				lua_pushstring (L, msg);
+				lua_concat (L, 2);
+				ret = 2;
+		}
+		ldap_memfree (mdn);
+		ldap_memfree (msg);
+		return ret;
+	}
+}
+
+
+/*
+** Push a function to process the LDAP result.
+*/
+static int create_future (lua_State *L, int rc, int conn, int msgid, int code) {
+	if (rc != LDAP_SUCCESS)
+		return faildirect (L, ldap_err2string (rc));
+	lua_pushvalue (L, conn); /* push connection as #1 upvalue */
+	lua_pushnumber (L, msgid); /* push msgid as #2 upvalue */
+	lua_pushnumber (L, code); /* push code as #3 upvalue */
+	lua_pushcclosure (L, result_message, 3);
+	return 1;
+}
+
+
+/*
 ** Unbind from the directory.
 ** @param #1 LDAP connection.
 ** @return 1 in case of success; nothing when already closed.
@@ -401,23 +455,19 @@ static int lualdap_close (lua_State *L) {
 ** @param #1 LDAP connection.
 ** @param #2 String with new entry's DN.
 ** @param #3 Table with new entry's attributes and values.
-** @return ??
+** @return Function to process the LDAP result.
 */
 static int lualdap_add (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	attrs_data attrs;
-	int rc;
+	int rc, msgid;
 	A_init (&attrs);
 	if (lua_istable (L, 3))
 		A_tab2mod (L, &attrs, 3, LUALDAP_MOD_ADD);
 	A_lastattr (L, &attrs);
-	rc = ldap_add_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
-	if (rc == LDAP_SUCCESS) {
-		lua_pushboolean (L, 1);
-		return 1;
-	} else
-		return faildirect (L, ldap_err2string (rc));
+	rc = ldap_add_ext (conn->ld, dn, attrs.attrs, NULL, NULL, &msgid);
+	return create_future (L, rc, 1, msgid, LDAP_RES_ADD);
 }
 
 
@@ -427,25 +477,18 @@ static int lualdap_add (lua_State *L) {
 ** @param #2 String with entry's DN.
 ** @param #3 String with attribute's name.
 ** @param #4 String with attribute's value.
-** @return Boolean.
+** @return Function to process the LDAP result.
 */
 static int lualdap_compare (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	const char *attr = luaL_check_string (L, 3);
 	BerValue bvalue;
-	int rc;
+	int rc, msgid;
 	bvalue.bv_val = (char *)luaL_check_string (L, 4);
 	bvalue.bv_len = lua_strlen (L, 4);
-	rc = ldap_compare_ext_s (conn->ld, dn, attr, &bvalue, NULL, NULL);
-	if (rc == LDAP_COMPARE_TRUE) {
-		lua_pushboolean (L, 1);
-		return 1;
-	} else if (rc == LDAP_COMPARE_FALSE) {
-		lua_pushboolean (L, 0);
-		return 1;
-	} else
-		return faildirect (L, ldap_err2string (rc));
+	rc = ldap_compare_ext (conn->ld, dn, attr, &bvalue, NULL, NULL, &msgid);
+	return create_future (L, rc, 1, msgid, LDAP_RES_COMPARE);
 }
 
 
@@ -458,12 +501,9 @@ static int lualdap_compare (lua_State *L) {
 static int lualdap_delete (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
-	int rc = ldap_delete_ext_s (conn->ld, dn, NULL, NULL);
-	if (rc == LDAP_SUCCESS) {
-		lua_pushboolean (L, 1);
-		return 1;
-	} else
-		return faildirect (L, ldap_err2string (rc));
+	int rc, msgid;
+	rc = ldap_delete_ext (conn->ld, dn, NULL, NULL, &msgid);
+	return create_future (L, rc, 1, msgid, LDAP_RES_DELETE);
 }
 
 
@@ -497,7 +537,7 @@ static int lualdap_modify (lua_State *L) {
 	conn_data *conn = getconnection (L);
 	const char *dn = luaL_check_string (L, 2);
 	attrs_data attrs;
-	int rc, param = 3;
+	int rc, msgid, param = 3;
 	A_init (&attrs);
 	while (lua_istable (L, param)) {
 		int op;
@@ -512,12 +552,22 @@ static int lualdap_modify (lua_State *L) {
 	}
 	A_lastattr (L, &attrs);
 	rc = ldap_modify_ext_s (conn->ld, dn, attrs.attrs, NULL, NULL);
-	if (rc != LDAP_SUCCESS)
-		return faildirect (L, ldap_err2string (rc));
-	else {
-		lua_pushboolean (L, 1);
-		return 1;
-	}
+	return create_future (L, rc, 1, msgid, LDAP_RES_MODIFY);
+}
+
+
+/*
+** Change the distinguished name of an entry.
+*/
+static int lualdap_rename (lua_State *L) {
+	conn_data *conn = getconnection (L);
+	const char *dn = luaL_check_string (L, 2);
+	const char *rdn = luaL_check_string (L, 3);
+	const char *par = luaL_optlstring (L, 4, NULL, NULL);
+	const int del = luaL_optnumber (L, 5, 0);
+	int msgid;
+	int rc = ldap_rename (conn->ld, dn, rdn, par, del, NULL, NULL, &msgid);
+	return create_future (L, rc, 1, msgid, LDAP_RES_MODDN);
 }
 
 
@@ -529,7 +579,7 @@ static int lualdap_modify (lua_State *L) {
 ** @param attr Name of entry's attribute to get values from.
 ** @return 1 in case of success.
 */
-static int pushvalues (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
+static int push_values (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 	int i, n;
 	BerValue **vals = ldap_get_values_len (ld, entry, attr);
 	if ((n = ldap_count_values_len (vals)) == 1) /* just one value */
@@ -551,7 +601,7 @@ static int pushvalues (lua_State *L, LDAP *ld, LDAPMessage *entry, char *attr) {
 ** @param entry Current entry.
 ** @param tab Absolute stack index of the table.
 */
-static void setattribs (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
+static void set_attribs (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
 	char *attr;
 	BerElement *ber = NULL;
 	for (attr = ldap_first_attribute (ld, entry, &ber);
@@ -559,12 +609,21 @@ static void setattribs (lua_State *L, LDAP *ld, LDAPMessage *entry, int tab) {
 		attr = ldap_next_attribute (ld, entry, ber))
 	{
 		lua_pushstring (L, attr);
-		pushvalues (L, ld, entry, attr);
+		push_values (L, ld, entry, attr);
 		lua_rawset (L, tab); /* tab[attr] = vals */
 		ldap_memfree (attr);
 	}
-	if (ber)
-		ber_free (ber, 0);
+	ber_free (ber, 0); /* don't need to test if (ber == NULL) */
+}
+
+
+/*
+** Get the distinguished name of the given entry and pushes it on the stack.
+*/
+static void push_dn (lua_State *L, LDAP *ld, LDAPMessage *entry) {
+	char *dn = ldap_get_dn (ld, entry);
+	lua_pushstring (L, dn);
+	ldap_memfree (dn);
 }
 
 
@@ -589,26 +648,22 @@ static int next_message (lua_State *L) {
 		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
 	else if (rc == -1)
 		return faildirect (L, LUALDAP_PREFIX"result error");
-
-	if (rc == LDAP_RES_SEARCH_RESULT) /* last message => nil */
+	else if (rc == LDAP_RES_SEARCH_RESULT) /* last message => nil */
 		lua_pushnil (L);
 	else {
 		LDAPMessage *msg = ldap_first_message (conn->ld, res);
 		switch (ldap_msgtype (msg)) {
 			case LDAP_RES_SEARCH_ENTRY: {
-				int tab;
 				LDAPMessage *entry = ldap_first_entry (conn->ld, msg);
-				char *dn = ldap_get_dn (conn->ld, entry);
-				lua_pushstring (L, dn);
-				ldap_memfree (dn);
+				push_dn (L, conn->ld, entry);
 				lua_newtable (L);
-				tab = lua_gettop (L);
-				setattribs (L, conn->ld, entry, tab);
+				set_attribs (L, conn->ld, entry, lua_gettop (L));
 				ret = 2; /* two return values */
 				break;
 			}
 			case LDAP_RES_SEARCH_REFERENCE: {
-				/*LDAPMessage *ref = ldap_first_reference (conn->ld, msg);*/
+				LDAPMessage *ref = ldap_first_reference (conn->ld, msg);
+				push_dn (L, conn->ld, ref); /* is this supposed to work? */
 				lua_pushnil (L);
 				break;
 			}
@@ -616,6 +671,7 @@ static int next_message (lua_State *L) {
 				lua_pushnil (L);
 				break;
 			default:
+				ldap_msgfree (res);
 				return luaL_error (L, LUALDAP_PREFIX"error on search result chain");
 		}
 	}
@@ -644,7 +700,7 @@ static int string2scope (lua_State *L, const char *s) {
 
 
 /*
-**
+** Close the search object.
 */
 static int lualdap_search_close (lua_State *L) {
 	search_data *search = (search_data *)luaL_checkudata (L, lua_upvalueindex (1), LUALDAP_SEARCH_METATABLE);
@@ -672,28 +728,9 @@ static void create_search (lua_State *L, int conn_index, int msgid) {
 
 
 /*
-** Perform a search operation.
-** @return #1 Function to iterate over the result entries.
-** @return #2 nil.
-** @return #3 nil as first entry.
-** The search result is defined as an upvalue of the iterator.
+** Fill in the attrs array, according to the attrs parameter.
 */
-static int lualdap_search (lua_State *L) {
-	conn_data *conn = getconnection (L);
-	const char *base;
-	int scope;
-	const char *filter;
-	char *attrs[LUALDAP_MAX_ATTRS];
-	int attrsonly;
-	int msgid;
-	int rc;
-	struct timeval st, *timeout;
-	int sizelimit;
-	double t;
-
-	if (!lua_istable (L, 2))
-		return luaL_error (L, LUALDAP_PREFIX"no search specification");
-	/* get attributes parameter */
+static int get_attrs_param (lua_State *L, char *attrs[]) {
 	lua_pushstring (L, "attrs");
 	lua_gettable (L, 2);
 	if (lua_isstring (L, -1)) {
@@ -703,20 +740,50 @@ static int lualdap_search (lua_State *L) {
 		attrs[0] = NULL;
 	else
 		if (table2strarray (L, lua_gettop (L), attrs, LUALDAP_MAX_ATTRS))
-			return 2;
+			return 0;
+	return 1;
+}
+
+
+/*
+** Fill in the struct timeval, according to the timeout parameter.
+*/
+static struct timeval *get_timeout_param (lua_State *L, struct timeval *st) {
+	double t = numbertabparam (L, "timeout", 0);
+	st->tv_sec = (long)t;
+	st->tv_usec = (long)(1000000 * (t - st->tv_sec));
+	if (st->tv_sec == 0 && st->tv_usec == 0)
+		return NULL;
+	else
+		return st;
+}
+
+
+/*
+** Perform a search operation.
+** @return #1 Function to iterate over the result entries.
+** @return #2 nil.
+** @return #3 nil as first entry.
+** The search result is defined as an upvalue of the iterator.
+*/
+static int lualdap_search (lua_State *L) {
+	conn_data *conn = getconnection (L);
+	const char *base, *filter;
+	char *attrs[LUALDAP_MAX_ATTRS];
+	int scope, attrsonly, msgid, rc, sizelimit;
+	struct timeval st, *timeout;
+
+	if (!lua_istable (L, 2))
+		return luaL_error (L, LUALDAP_PREFIX"no search specification");
+	if (!get_attrs_param (L, attrs))
+		return 2;
 	/* get other parameters */
 	attrsonly = booltabparam (L, "attrsonly", 0);
 	base = strtabparam (L, "base", NULL);
 	filter = strtabparam (L, "filter", NULL);
 	scope = string2scope (L, strtabparam (L, "scope", NULL));
 	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
-	t = numbertabparam (L, "timeout", 0);
-	st.tv_sec = (long)t;
-	st.tv_usec = (long)(1000000 * (t - st.tv_sec));
-	if (st.tv_sec == 0 && st.tv_usec == 0)
-		timeout = NULL;
-	else
-		timeout = &st;
+	timeout = get_timeout_param (L, &st);
 
 	rc = ldap_search_ext (conn->ld, base, scope, filter, attrs, attrsonly,
 		NULL, NULL, timeout, sizelimit, &msgid);
@@ -728,29 +795,6 @@ static int lualdap_search (lua_State *L) {
 	lua_pushnil (L);
 	lua_pushnil (L);
 	return 3;
-}
-
-
-/*
-** Change the distinguished name of an entry.
-*/
-static int lualdap_rename (lua_State *L) {
-	conn_data *conn = getconnection (L);
-	const char *dn = luaL_check_string (L, 2);
-	const char *rdn = luaL_check_string (L, 3);
-	const char *par = luaL_optlstring (L, 4, NULL, NULL);
-	const int del = luaL_optnumber (L, 5, 0);
-	int rc = ldap_rename_s (conn->ld, dn, rdn, par, del, NULL, NULL);
-	if (rc == LDAP_SUCCESS) {
-		lua_pushboolean (L, 1);
-		return 1;
-	} else {
-		lua_pushnil (L);
-		lua_pushstring (L, LUALDAP_PREFIX);
-		lua_pushstring (L, ldap_err2string (rc));
-		lua_concat (L, 2);
-		return 2;
-	}
 }
 
 
