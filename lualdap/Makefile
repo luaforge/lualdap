@@ -1,10 +1,11 @@
 WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I/usr/local/include/lua5
 LIBS_DIR=
-LIBS= -llua.5.0 -llualib.5.0 -lm -lldap -ldl
+LIBS= -llua -llualib -lm -lldap -ldl
 CFLAGS= -g $(MYCFLAGS) $(WARN) $(INCS) $(DEFS)
 
-VERSION= 1.0a
+V= 1.0
+VERSION= $Va
 PKG= lualdap-$(VERSION)
 TAR_FILE= $(PKG).tar.gz
 ZIP_FILE= $(PKG).zip
@@ -17,10 +18,10 @@ AR= ar rcu
 RANLIB= ranlib
 
 OBJ= lualdap.o
-LIB= liblualdap.$(VERSION).a
-SO= liblualdap.$(VERSION).so
-DYLIB= liblualdap.$(VERSION).dylib
-DLL= lualdap.$(VERSION).dll
+LIB= liblualdap$(VERSION).a
+SO= liblualdap$(VERSION).so
+DYLIB= liblualdap$(VERSION).dylib
+DLL= lualdap$(VERSION).dll
 
 dist:
 	mkdir $(PKG);
@@ -42,7 +43,8 @@ $(SO): $(OBJ)
 dylib: $(DYLIB)
 $(DYLIB): $(OBJ)
 	sed -e "s/LIB_NAME/$(DYLIB)/" loader.tmpl > lualdap.lua
-	gcc -o $@ -dynamiclib $(OBJ) $(LIBS_DIR) $(LIBS)
+	#gcc -o $@ -dynamiclib $(OBJ) $(LIBS_DIR) $(LIBS)
+	libtool -dynamic -compatibility_version $V -current_version $V -o $@ $(OBJ) $(LIBS_DIR) $(LIBS) -lcc_dynamic -lc
 
 clean:
 	rm -f $(OBJ) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
