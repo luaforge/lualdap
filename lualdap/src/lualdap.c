@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.11 2003-08-18 12:52:49 tomas Exp $
+** $Id: lualdap.c,v 1.12 2003-08-18 12:55:22 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -669,6 +669,29 @@ static int lualdap_search (lua_State *L) {
 
 
 /*
+**
+*/
+static int lualdap_rename (lua_State *L) {
+	conn_data *conn = getconnection (L);
+	const char *dn = luaL_check_string (L, 2);
+	const char *rdn = luaL_check_string (L, 3);
+	const char *par = luaL_optlstring (L, 4, NULL, NULL);
+	const int del = luaL_optnumber (L, 5, 0);
+	int err = ldap_rename_s (conn->ld, dn, rdn, par, del, NULL, NULL);
+	if (err == LDAP_SUCCESS) {
+		lua_pushboolean (L, 1);
+		return 1;
+	} else {
+		lua_pushnil (L);
+		lua_pushstring (L, LUALDAP_PREFIX);
+		lua_pushstring (L, ldap_err2string (err));
+		lua_concat (L, 2);
+		return 2;
+	}
+}
+
+
+/*
 ** Create a metatable.
 */
 static int lualdap_createmeta (lua_State *L) {
@@ -678,6 +701,7 @@ static int lualdap_createmeta (lua_State *L) {
 		{"compare", lualdap_compare},
 		{"delete", lualdap_delete},
 		{"modify", lualdap_modify},
+		{"rename", lualdap_rename},
 		{"search", lualdap_search},
 		{NULL, NULL}
 	};
