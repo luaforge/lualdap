@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.4 2003-08-18 16:25:04 tomas Exp $>
+<!$Id: manual.html,v 1.5 2003-08-25 00:59:19 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -99,9 +99,16 @@ character."</em>
 A connection object offers methods that implement the LDAP operations.
 Almost all of them need a <a href="#dn">distinguished name</a> to
 identify the entry on which the operation will be executed.
-All !!! methods return a boolean indicating the success or failure
-of the operation.
-On failure, an error message is also returned as a second parameter.
+<p>
+All methods return <tt>true</tt> indicating success of the operation;
+the only exception is <a href="#conn_compare">compare</a> that can return
+<tt>false</tt>.
+There are two kinds of errors:
+<em>API errors</em>, such as wrong parameters, absent connection etc.; and
+<em>LDAP errors</em>, such as mal-formed DN, unknown attribute etc.
+API errors will raise a Lua error,
+while LDAP errors will be identified as a <tt>nil</tt> value returned,
+followed by an error message (provided by the OpenLDAP client).
 <p>
 A connection object can be created by calling one of the
 <a href="#initialization_functions">Initialization functions</a>.
@@ -113,6 +120,10 @@ A connection object can be created by calling one of the
 <li> <b><tt>conn:add (distinguished_name, table_of_attributes)</tt></b> <br>
 Add a new entry to the directory with the given attributes and values.
 
+<a name="conn_close"></a>
+<li> <b><tt>conn:close()</tt></b> <br>
+Closes the connection <tt>conn</tt>.
+
 <a name="conn_compare"></a>
 <li> <b><tt>conn:compare (distinguished_name, attribute, value)</tt></b> <br>
 Compare a value against an entry.
@@ -122,9 +133,19 @@ Compare a value against an entry.
 Delete an entry from the directory.
 
 <a name="conn_modify"></a>
-<li> <b><tt>conn:modify (distinguished_name, ???)</tt></b> <br>
+<li> <b><tt>conn:modify (distinguished_name, table_of_operations*)</tt></b> <br>
 Modify values of attributes on the given entry.
-...
+The tables of operations are <a href="#attributes">table of attributes</a>
+but with the value on index <tt>1</tt> indicating the operation to be
+performed.
+The valid operations are:
+<ul>
+  <li> <b><tt>'+'</tt></b> to add the values to the attributes
+  <li> <b><tt>'-'</tt></b> to delete the values of the attributes
+  <li> <b><tt>'='</tt></b> to replace the values of the attributes
+</ul>
+All tables of operations passed as arguments will be joined together to
+perform just one LDAP modify operation.
 
 <a name="conn_rename"></a>
 <li> <b><tt>conn:rename (distinguished_name, new_relative_dn, new_parent)</tt></b> <br>
@@ -140,7 +161,7 @@ The parameters are described below:
   <li> <b><tt>attrsonly</tt></b> a boolean value that must be <i>false</i> (default) if both attribute names and values are to be retrieved or <i>true</i> if only names are wanted.
   <li> <b><tt>base</tt></b> The <a href="#dn">distinguished name</a> of the entry at which to start the search.
   <li> <b><tt>filter</tt></b> A string representing the search filter as described in <a href="http://www.ietf.org/rfc/rfc2254.txt">The String Representation of LDAP Search Filters (RFC 2254)</a>.
-  <li> <b><tt>scope</tt></b> A string indicating the scope of the search.  The valid strings are: "base", "onelevel" and "subtree" (default).
+  <li> <b><tt>scope</tt></b> A string indicating the scope of the search.  The valid strings are: "base", "onelevel" and "subtree".  In fact, just the initial letter is tested, so any string beginning with the same lower case letters will be accepted.  The empty string ("") and <tt>nil</tt> will be treated as the default scope.
   <li> <b><tt>sizelimit</tt></b> The maximum number of entries to return (the default is no limit).
   <li> <b><tt>timeoutmicrosec</tt></b> The timeout in microseconds (default is no timeout).  This number will be combined with <tt>timeoutmicrosec</tt>; if both are zero, no timeout will be used.
   <li> <b><tt>timeoutsec</tt></b> The timeout in seconds (default is no timeout).  This number will be combined with <tt>timeoutsec</tt>; if both are zero, no timeout will be used.
@@ -151,10 +172,6 @@ The search iterator is used to get the search result and will return
 a string representing the <a href="#dn">distinguished name</a> and
 a <a href="#attributes">table of attributes</a> as returned by the
 search request.
-
-<a name="conn_close"></a>
-<li> <b><tt>conn:close()</tt></b> <br>
-Closes the connection <tt>conn</tt>.
 
 </ul>
 
@@ -187,6 +204,21 @@ for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" } do
 	end
 end
 
+ld:add ("mydn=newuser,ou=people,dc=ldap,dc=world", {
+	objectClass = { "", "", },
+	mydn = "newuser",
+	abc = "qwerty",
+	tel = { "123456758", "98765432", },
+	givenName = "New User",
+}
+
+ld:modify {"mydn=newuser,ou=people,dc=ldp,dc=world",
+	{ '=', givenName = "New", cn = "New", sn = "User", },
+	{ '+', o = { "University", "College", }, mail = "newuser@university.edu", },
+	{ '-', abc = true, tel = "123456758", },
+	{ '+', tel = "13579113", },
+}
+
 </pre>
 </blockquote>
 
@@ -196,9 +228,18 @@ end
 <p>
 <ul>
 <li> <a href="#introduction">Introduction</a>
+<li> <a href="#attributes">Representing attributes</a>
+<li> <a href="#dn">Distinguished names</a>
+<li> <a href="#initialization_functions">Initialization functions</a>
 <li> <a href="#connection_object">Connection object</a>
   <ul>
+    <li> <a href="#conn_add">add</a>
     <li> <a href="#conn_close">close</a>
+    <li> <a href="#conn_compare">compare</a>
+    <li> <a href="#conn_delete">delete</a>
+    <li> <a href="#conn_modify">modify</a>
+    <li> <a href="#conn_rename">rename</a>
+    <li> <a href="#conn_search">search</a>
   </ul>
 <li> <a href="#examples">Example</a>
 </ul>
@@ -216,7 +257,7 @@ end
 <hr>
 <small>
 Last modified on
-Mon Aug 18 13:57:17 BRT 2003
+Mon Aug 25 00:45:01 BRT 2003
 </small>
 
 </body>
