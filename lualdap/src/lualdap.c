@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.16 2003-08-26 05:38:03 tomas Exp $
+** $Id: lualdap.c,v 1.17 2003-08-26 16:44:13 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -167,6 +167,24 @@ static long longtabparam (lua_State *L, char *name, int def) {
 
 
 /*
+** Get the field named name as a double.
+** The table MUST be at position 2.
+*/
+static double numbertabparam (lua_State *L, char *name, double def) {
+	strgettable (L, name);
+	if (lua_isnil (L, -1))
+		return def;
+	else {
+		double n = lua_tonumber (L, -1);
+		if (n == 0 && !lua_isnumber (L, -1))
+			return option_error (L, name, "number");
+		else
+			return n;
+	}
+}
+
+
+/*
 ** Get the field named name as a boolean.
 ** The table MUST be at position 2.
 */
@@ -285,7 +303,6 @@ static BerValue **A_tab2val (lua_State *L, attrs_data *a, const char *name) {
 
 /*
 ** Set a modification value (which MUST be on top of the stack).
-** The value is poped from the stack.
 */
 static void A_setmod (lua_State *L, attrs_data *a, int op, const char *name) {
 	if (a->ai >= LUALDAP_MAX_ATTRS) {
@@ -295,7 +312,6 @@ static void A_setmod (lua_State *L, attrs_data *a, int op, const char *name) {
 	a->mods[a->ai].mod_op = op;
 	a->mods[a->ai].mod_type = (char *)name;
 	a->mods[a->ai].mod_bvalues = A_tab2val (L, a, name);
-	/*lua_pop (L, 1);*/
 	a->attrs[a->ai] = &a->mods[a->ai];
 	a->ai++;
 }
@@ -345,7 +361,6 @@ static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 		int n = luaL_getn (L, tab);
 		if (limit < (n+1))
 			return luaL_error (L, LUALDAP_PREFIX"too many arguments");
-
 		for (i = 0; i < n; i++) {
 			lua_rawgeti (L, tab, i+1); /* push table element */
 			if (lua_isstring (L, -1))
@@ -355,7 +370,6 @@ static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 			}
 		}
 		array[n] = NULL;
-		/*lua_pop (L, n);*/
 	} else 
 		return luaL_error (L, LUALDAP_PREFIX"bad argument #%d (table or string expected, got %s)", tab, lua_typename (L, lua_type (L, tab)));
 	return 0;
@@ -588,7 +602,6 @@ static int next_message (lua_State *L) {
 				ldap_memfree (dn);
 				lua_newtable (L);
 				tab = lua_gettop (L);
-				/* setdn (L, conn->ld, entry, tab); */
 				setattribs (L, conn->ld, entry, tab);
 				ret = 2; /* two return values */
 				break;
@@ -675,6 +688,7 @@ static int lualdap_search (lua_State *L) {
 	int rc;
 	struct timeval st, *timeout;
 	int sizelimit;
+	double t;
 
 	if (!lua_istable (L, 2))
 		return luaL_error (L, LUALDAP_PREFIX"no search specification");
@@ -695,10 +709,9 @@ static int lualdap_search (lua_State *L) {
 	filter = strtabparam (L, "filter", NULL);
 	scope = string2scope (L, strtabparam (L, "scope", NULL));
 	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
-/* trocar o timeout para um parametro so' */
-	st.tv_sec = longtabparam (L, "timeoutsec", 0);
-	st.tv_usec = longtabparam (L, "timeoutmicrosec", 0);
-/**/
+	t = numbertabparam (L, "timeout", 0);
+	st.tv_sec = (long)t;
+	st.tv_usec = (long)(1000000 * (t - st.tv_sec));
 	if (st.tv_sec == 0 && st.tv_usec == 0)
 		timeout = NULL;
 	else
@@ -718,7 +731,7 @@ static int lualdap_search (lua_State *L) {
 
 
 /*
-**
+** Change the distinguished name of an entry.
 */
 static int lualdap_rename (lua_State *L) {
 	conn_data *conn = getconnection (L);
@@ -726,30 +739,17 @@ static int lualdap_rename (lua_State *L) {
 	const char *rdn = luaL_check_string (L, 3);
 	const char *par = luaL_optlstring (L, 4, NULL, NULL);
 	const int del = luaL_optnumber (L, 5, 0);
-	int err = ldap_rename_s (conn->ld, dn, rdn, par, del, NULL, NULL);
-	if (err == LDAP_SUCCESS) {
+	int rc = ldap_rename_s (conn->ld, dn, rdn, par, del, NULL, NULL);
+	if (rc == LDAP_SUCCESS) {
 		lua_pushboolean (L, 1);
 		return 1;
 	} else {
 		lua_pushnil (L);
 		lua_pushstring (L, LUALDAP_PREFIX);
-		lua_pushstring (L, ldap_err2string (err));
+		lua_pushstring (L, ldap_err2string (rc));
 		lua_concat (L, 2);
 		return 2;
 	}
-}
-
-
-/*
-**
-*/
-static int lualdap_starttls (lua_State *L) {
-	conn_data *conn = getconnection (L);
-	int rc = ldap_start_tls_s (conn->ld, NULL, NULL);
-	if (rc != LDAP_SUCCESS)
-		return faildirect (L, ldap_err2string (rc));
-	lua_pushboolean (L, 1);
-	return 1;
 }
 
 
@@ -765,7 +765,6 @@ static int lualdap_createmeta (lua_State *L) {
 		{"modify", lualdap_modify},
 		{"rename", lualdap_rename},
 		{"search", lualdap_search},
-		{"starttls", lualdap_starttls},
 		{NULL, NULL}
 	};
 
@@ -814,6 +813,7 @@ static int lualdap_open_simple (lua_State *L) {
 	const char *host = luaL_check_string (L, 1);
 	const char *who = luaL_optstring (L, 2, NULL);
 	const char *password = luaL_optstring (L, 3, NULL);
+	int use_tls = lua_toboolean (L, 4);
 	conn_data *conn = (conn_data *)lua_newuserdata (L, sizeof(conn_data));
 	int err;
 
@@ -829,6 +829,12 @@ static int lualdap_open_simple (lua_State *L) {
 	if (ldap_set_option (conn->ld, LDAP_OPT_PROTOCOL_VERSION, &conn->version)
 		!= LDAP_OPT_SUCCESS)
 		return faildirect(L, LUALDAP_PREFIX"Error setting LDAP version");
+	/* Use TLS */
+	if (use_tls) {
+		int rc = ldap_start_tls_s (conn->ld, NULL, NULL);
+		if (rc != LDAP_SUCCESS)
+			return faildirect (L, ldap_err2string (rc));
+	}
 	/* Bind to a server */
 	err = ldap_bind_s (conn->ld, who, password, LDAP_AUTH_SIMPLE);
 	if (err != LDAP_SUCCESS)
