@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.24 2003-09-03 11:07:51 tomas Exp $
+** $Id: lualdap.c,v 1.25 2003-09-04 15:41:53 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -41,7 +41,6 @@
 
 /* LDAP connection information */
 typedef struct {
-	int        closed;
 	int        version; /* LDAP version */
 	LDAP      *ld;      /* LDAP connection */
 } conn_data;
@@ -85,7 +84,7 @@ static int faildirect (lua_State *L, const char *errmsg) {
 static conn_data *getconnection (lua_State *L) {
 	conn_data *conn = (conn_data *)luaL_checkudata (L, 1, LUALDAP_CONNECTION_METATABLE);
 	luaL_argcheck(L, conn!=NULL, 1, LUALDAP_PREFIX"LDAP connection expected");
-	luaL_argcheck(L,!conn->closed,1,LUALDAP_PREFIX"LDAP connection is closed");
+	luaL_argcheck(L, conn->ld, 1, LUALDAP_PREFIX"LDAP connection is closed");
 	return conn;
 }
 
@@ -380,7 +379,7 @@ static int result_message (lua_State *L) {
 	int msgid = (int)lua_tonumber (L, lua_upvalueindex (2));
 	int res_code = (int)lua_tonumber (L, lua_upvalueindex (3));
 
-	luaL_argcheck (L,!conn->closed,1,LUALDAP_PREFIX"LDAP connection is closed");
+	luaL_argcheck (L, conn->ld, 1, LUALDAP_PREFIX"LDAP connection is closed");
 	rc = ldap_result (conn->ld, msgid, LDAP_MSG_ONE, timeout, &res);
 	if (rc == 0)
 		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
@@ -438,13 +437,10 @@ static int create_future (lua_State *L, int rc, int conn, int msgid, int code) {
 static int lualdap_close (lua_State *L) {
 	conn_data *conn = (conn_data *)luaL_checkudata (L, 1, LUALDAP_CONNECTION_METATABLE);
 	luaL_argcheck(L, conn!=NULL, 1, LUALDAP_PREFIX"LDAP connection expected");
-	if (conn->closed)
+	if (conn->ld == NULL) /* already closed */
 		return 0;
-	conn->closed = 1;
-	if (conn->ld) {
-		ldap_unbind (conn->ld);
-		conn->ld = NULL;
-	}
+	ldap_unbind (conn->ld);
+	conn->ld = NULL;
 	lua_pushnumber (L, 1);
 	return 1;
 }
@@ -631,7 +627,7 @@ static void push_dn (lua_State *L, LDAP *ld, LDAPMessage *entry) {
 
 
 /*
-**
+** Release connection reference.
 */
 static void search_close (lua_State *L, search_data *search) {
 	luaL_unref (L, LUA_REGISTRYINDEX, search->conn);
@@ -652,10 +648,6 @@ static int next_message (lua_State *L) {
 	int rc;
 	int ret = 1;
 
-	/*if (search->msgid == -1) {*/ /* no more messages *//*
-		lua_pushnil (L);
-		return 1;
-	}*/
 	lua_rawgeti (L, LUA_REGISTRYINDEX, search->conn);
 	conn = (conn_data *)lua_touserdata (L, -1); /* get connection */
 
@@ -884,9 +876,8 @@ static int lualdap_open_simple (lua_State *L) {
 	/* Initialize */
 	lualdap_setmeta (L, LUALDAP_CONNECTION_METATABLE);
 	conn->version = 0;
-	conn->closed = 0;
 	conn->ld = ldap_init (host, LDAP_PORT);
-	if (!conn->ld)
+	if (conn->ld == NULL)
 		return faildirect(L,LUALDAP_PREFIX"Error connecting to server");
 	/* Set protocol version */
 	conn->version = LDAP_VERSION3;
