@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.10 2003-08-15 16:45:43 tomas Exp $
+** $Id: lualdap.c,v 1.11 2003-08-18 12:52:49 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -125,7 +125,7 @@ static void strgettable (lua_State *L, char *name) {
 */
 static const char *strtabparam (lua_State *L, char *name) {
 	strgettable (L, name);
-	return luaL_checkstring (L, -1);
+	return luaL_optstring (L, -1, NULL);
 }
 
 
@@ -309,7 +309,8 @@ static int table2strarray (lua_State *L, int tab, char *array[], int limit) {
 ** @return 1 in case of success; nothing when already closed.
 */
 static int lualdap_close (lua_State *L) {
-	conn_data *conn = getconnection (L);
+	conn_data *conn = (conn_data *)luaL_checkudata (L, 1, LUALDAP_CONNECTION_METATABLE);
+	luaL_argcheck(L, conn!=NULL, 1, LUALDAP_PREFIX"LDAP connection expected");
 	if (conn->closed)
 		return 0;
 	conn->closed = 1;
@@ -585,7 +586,8 @@ static int string2scope (const char *s) {
 **
 */
 static int lualdap_search_close (lua_State *L) {
-	search_data *search = getsearch (L);
+	search_data *search = (search_data *)luaL_checkudata (L, lua_upvalueindex (1), LUALDAP_SEARCH_METATABLE);
+	luaL_argcheck (L, search!=NULL, 1, LUALDAP_PREFIX"LDAP search expected");
 	if (search->closed)
 		return 0;
 	luaL_unref (L, LUA_REGISTRYINDEX, search->conn);
