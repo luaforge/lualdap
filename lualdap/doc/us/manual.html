@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.5 2003-08-25 00:59:19 tomas Exp $>
+<!$Id: manual.html,v 1.6 2003-08-27 17:08:51 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -81,13 +81,18 @@ Specification</a>.
 <p>
 LDAP provides some way to connect to a server and so did LuaLDAP:
 <ul>
-<li> <b><tt>lualdap.open_simple (hostname, who, password)</tt></b> <br>
+<li> <b><tt>lualdap.open_simple (hostname, who, password, usetls)</tt></b> <br>
 Initializes a session with an LDAP server.
 Quoting the C LDAP API definition <em>"hostname contains a space-separated
 list of hostnames or dotted strings representing the IP address of hosts
 running an LDAP server to connect to. Each hostname in the list MAY include
 a port number which is separated from the host itself with a colon (:)
 character."</em>
+The argument <tt>who</tt> should be the <a href="#dn">distinguished name</a>
+of the entry that has the password to be checked against the third argument,
+<tt>password</tt>.
+The optional argument <tt>usetla</tt> is a boolean flag indicating if
+Transport Layer Security (TLS) should be used.
 
 </ul>
 
