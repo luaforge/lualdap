@@ -1,6 +1,6 @@
 /*
 ** LuaLDAP
-** $Id: lualdap.c,v 1.9 2003-08-13 10:10:06 tomas Exp $
+** $Id: lualdap.c,v 1.10 2003-08-15 16:45:43 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -140,6 +140,21 @@ static long longtabparam (lua_State *L, char *name, int def) {
 
 
 /*
+** Get the field named name as a boolean.
+** The table should be at position 2.
+*/
+static int booltabparam (lua_State *L, char *name, int def) {
+	strgettable (L, name);
+	if (lua_isnoneornil (L, -1))
+		return def;
+	else if (!lua_isboolean (L, -1))
+		return luaL_error (L, LUALDAP_PREFIX"wrong type, boolean expected");
+	else
+		return lua_toboolean (L, -1);
+}
+
+
+/*
 ** Initialize attributes structure.
 */
 static void init_attrs (attrs_data *attrs) {
@@ -180,6 +195,15 @@ static void last_value (attrs_data *attrs) {
 
 
 /*
+** Store a NULL pointer as mod_val, representing a null attribute.
+** This function assumes that the 'ai' counter was not updated yet.
+*/
+static void null_value (attrs_data *attrs) {
+	attrs->mods[attrs->ai].mod_bvalues = NULL;
+}
+
+
+/*
 ** Create a NULL-terminated array of berval strings from a Lua table.
 ** It also works for one string (instead of a table with a unique value).
 ** @param tab stack index of the table (or string).
@@ -193,6 +217,8 @@ static int table2bervalarray (lua_State *L, int tab, attrs_data *attrs) {
 		/* store pointer to new berval */
 		new_value (attrs);
 		str2bvals (L, -1, attrs);
+	} else if (lua_isboolean (L, tab)) {
+		null_value (attrs);
 	} else if (lua_istable (L, tab)) {
 		int i;
 		int n = luaL_getn (L, tab);
@@ -222,14 +248,18 @@ static int table2bervalarray (lua_State *L, int tab, attrs_data *attrs) {
 static int table2attrarray (lua_State *L, int tab, int op, attrs_data *attrs) {
 	lua_pushnil (L); /* first key for lua_next */
 	while (lua_next (L, tab) != 0) {
+		/* attribute must be a string and not a number */
 		if ((!lua_isnumber (L, -2)) && (lua_isstring (L, -2))) {
 			if (LUALDAP_MAX_ATTRS < attrs->ai)
 				return faildirect (L, LUALDAP_PREFIX"too many attributes/values");
+			/* fill in mods element */
 			attrs->mods[attrs->ai].mod_op = op;
 			attrs->mods[attrs->ai].mod_type = (char *)lua_tostring (L, -2);
 			attrs->mods[attrs->ai].mod_bvalues = &attrs->values[attrs->vi];
+			/* fill in values and bvals element(s) */
 			if (table2bervalarray (L, lua_gettop(L), attrs))
 				return 2;
+			/* fill in attrs element (to point to above mods) */
 			attrs->attrs[attrs->ai] = &attrs->mods[attrs->ai];
 			attrs->ai++;
 		}
@@ -580,11 +610,6 @@ static void create_search (lua_State *L, int conn_index, int msgid) {
 
 /*
 ** Perform a search operation.
-** @param #1 LDAP connection.
-** @param #2 String with base entry's DN.
-** @param #3 String with search scope.
-** @param #4 String with search filter.
-** @param #5 Table with names of attributes to retrieve.
 ** @return #1 Function to iterate over the result entries.
 ** @return #2 nil.
 ** @return #3 nil as first entry.
@@ -604,27 +629,29 @@ static int lualdap_search (lua_State *L) {
 
 	if (!lua_istable (L, 2))
 		return luaL_error (L, LUALDAP_PREFIX"no search specification");
-	if ((base = strtabparam (L, "base")) == NULL)
-		return luaL_error (L, LUALDAP_PREFIX"base field undefined");
 	/* get attributes parameter */
 	lua_pushstring (L, "attrs");
 	lua_gettable (L, 2);
-	if (!lua_istable (L, -1))
+	if (lua_isstring (L, -1)) {
+		attrs[0] = (char *)lua_tostring (L, -1);
+		attrs[1] = NULL;
+	} else if (!lua_istable (L, -1))
 		attrs[0] = NULL;
 	else
 		if (table2strarray (L, lua_gettop (L), attrs, LUALDAP_MAX_ATTRS))
 			return 2;
 	/* get other parameters */
-	scope = string2scope (strtabparam (L, "scope"));
+	attrsonly = booltabparam (L, "attrsonly", 0);
+	base = strtabparam (L, "base");
 	filter = strtabparam (L, "filter");
-	attrsonly = longtabparam (L, "attrsonly", 0);
+	scope = string2scope (strtabparam (L, "scope"));
+	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
 	st.tv_sec = longtabparam (L, "timeoutsec", 0);
 	st.tv_usec = longtabparam (L, "timeoutmicrosec", 0);
 	if (st.tv_sec == 0 && st.tv_usec == 0)
 		timeout = NULL;
 	else
 		timeout = &st;
-	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
 
 	rc = ldap_search_ext (conn->ld, base, scope, filter, attrs, attrsonly,
 		NULL, NULL, timeout, sizelimit, &msgid);
@@ -735,10 +762,5 @@ int lualdap_libopen (lua_State *L) {
 	lua_rawset (L, -3);
 	lua_setglobal (L, LUALDAP_TABLENAME);
 
-/*
-lua_pushcfunction (L, lualdap_modify);
-lua_setglobal (L, "modify");
-*/
-	
 	return 0;
 }
