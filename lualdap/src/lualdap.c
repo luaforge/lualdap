@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.35 2004-11-17 14:17:33 tomas Exp $
+** $Id: lualdap.c,v 1.36 2005-01-10 05:58:22 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -385,16 +385,15 @@ static int result_message (lua_State *L) {
 	rc = ldap_result (conn->ld, msgid, LDAP_MSG_ONE, timeout, &res);
 	if (rc == 0)
 		return faildirect (L, LUALDAP_PREFIX"result timeout expired");
-	else if (rc == -1)
+	else if (rc < 0) {
+		ldap_msgfree (res);
 		return faildirect (L, LUALDAP_PREFIX"result error");
-	else if (rc != res_code)
-		return faildirect (L, ldap_err2string (rc));
-	else {
+	} else {
 		int err, ret = 1;
 		char *mdn, *msg;
 		rc = ldap_parse_result (conn->ld, res, &err, &mdn, &msg, NULL, NULL, 1);
 		if (rc != LDAP_SUCCESS)
-			return faildirect (L, ldap_err2string (rc));
+			return faildirect (L, ldap_err2string (err));
 		switch (err) {
 			case LDAP_SUCCESS:
 			case LDAP_COMPARE_TRUE:
