@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.1 2003-06-15 11:55:59 tomas Exp $>
+<!$Id: manual.html,v 1.2 2003-06-23 11:26:51 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -35,9 +35,62 @@ ul { list-style-type: disc };
 <p>
 
 
+<a name="attributes">
+<h2>Representing attributes</h2>
+
+
+<p>
+Many LDAP operations manage sets of attributes and values.
+So LuaLDAP provides a uniform way of representing them: using Lua tables.
+A table of attributes is indexed by the name of the attribute and its
+value can be a string (it can be a "binary string", so be careful),
+when there is only one value for that attribute or a list/table of values
+in the correct order, starting from 1 to <em>n</em>.
+Some operations have different approaches that will be explained
+when necessary.
+<p>
+Follows a small example:
+<pre>
+	entry = {
+		attr_name_1 = "value 1",
+		attr_name_2 = {
+			"first value of attribute 1",
+			"#2 value",
+		},
+	}
+</pre>
+Attribute's names cannot cantain zeroes (<tt>'\0'</tt>)
+
+
+
+<a name="initialization_functions">
+<h2>Initialization functions</h2>
+<p>
+LDAP provides some way to connect to a server and so did LuaLDAP:
+<ul>
+<li> <b><tt>lualdap.open_simple (hostname, who, password)</tt></b> <br>
+Initializes a session with an LDAP server.
+Quoting the C LDAP API definition <em>"hostname contains a space-separated
+list of hostnames or dotted strings representing the IP address of hosts
+running an LDAP server to connect to. Each hostname in the list MAY include
+a port number which is separated from the host itself with a colon (:)
+character."</em>
+
+</ul>
+
+
 <a name="connection_object">
 <h2>Connection objects</h2>
 
+<p>
+A connection object contains specific attributes and parameters of a single
+data source connection.
+A connection object is created by calling the
+<tt><a href="#env_connect">environment:connect</a></tt>
+method.
+<p>
+A connection objects can be created by calling one of the
+<a href="#initialization_functions">Initialization functions</a>.
 
 <h4>Methods</h4>
 
@@ -45,6 +98,30 @@ ul { list-style-type: disc };
 <a name="conn_close"></a>
 <li> <b><tt>conn:close()</tt></b> <br>
 Closes the connection <tt>conn</tt>.
+
+<a name="conn_add"></a>
+<li> <b><tt>conn:add (distinguished_name, table_of_attributes)</tt></b> <br>
+Add a new entry to the directory.
+
+<a name="conn_compare"></a>
+<li> <b><tt>conn:compare (distinguished_name, attribute, value)</tt></b> <br>
+Compare a value against an entry.
+
+<a name="conn_delete"></a>
+<li> <b><tt>conn:delete (distinguished_name)</tt></b> <br>
+Delete an entry from the directory.
+
+<a name="conn_modify"></a>
+<li> <b><tt>conn:modify (distinguished_name)</tt></b> <br>
+????
+
+<a name="conn_modify_dn"></a>
+<li> <b><tt>conn:rename (distinguished_name, new_relative_dn, new_parent)</tt></b> <br>
+Modify the name of the entry.
+
+<a name="conn_search"></a>
+<li> <b><tt>conn:search (distinguished_name)</tt></b> <br>
+????
 
 </ul>
 
