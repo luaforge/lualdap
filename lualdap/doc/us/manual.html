@@ -1,5 +1,5 @@
 <html>
-<!$Id: manual.html,v 1.2 2003-06-23 11:26:51 tomas Exp $>
+<!$Id: manual.html,v 1.3 2003-08-15 16:43:10 tomas Exp $>
 
 <head>
 <style type="text/css">
@@ -45,25 +45,38 @@ So LuaLDAP provides a uniform way of representing them: using Lua tables.
 A table of attributes is indexed by the name of the attribute and its
 value can be a string (it can be a "binary string", so be careful),
 when there is only one value for that attribute or a list/table of values
-in the correct order, starting from 1 to <em>n</em>.
+indexed by numbers from 1 to <em>n</em>.
 Some operations have different approaches that will be explained
 when necessary.
 <p>
 Follows a small example:
 <pre>
 	entry = {
-		attr_name_1 = "value 1",
-		attr_name_2 = {
-			"first value of attribute 1",
-			"#2 value",
+		an_attribute = "a value",
+		other_attribute = {
+			"first value of other attribute",
+			"another value of other attribute",
 		},
 	}
 </pre>
 Attribute's names cannot cantain zeroes (<tt>'\0'</tt>)
 
 
+<a name="dn"></a>
+<h2>Distinguished names</h2>
 
-<a name="initialization_functions">
+<p>
+The distinguished name (DN) is the term used to identify an entry on the
+directory information tree.
+It is formed by the concatenation of the relative distinguished name (RDN)
+of the entry with the distinguished name of its parent.
+LuaLDAP will always use a string to represent the DN of any entry.
+<p>
+A more precise definition can be found on the LDAP documentation
+such as <a href="http://www.ietf.org/rfc/rfc3377.txt">LDAPv3 Technical
+Specification</a>.
+
+<a name="initialization_functions"></a>
 <h2>Initialization functions</h2>
 <p>
 LDAP provides some way to connect to a server and so did LuaLDAP:
@@ -83,25 +96,22 @@ character."</em>
 <h2>Connection objects</h2>
 
 <p>
-A connection object contains specific attributes and parameters of a single
-data source connection.
-A connection object is created by calling the
-<tt><a href="#env_connect">environment:connect</a></tt>
-method.
+A connection object offers methods that implement the LDAP operations.
+Almost all of them need a <a href="#dn">distinguished name</a> to
+identify the entry on which the operation will be executed.
+All !!! methods return a boolean indicating the success or failure
+of the operation.
+On failure, an error message is also returned as a second parameter.
 <p>
-A connection objects can be created by calling one of the
+A connection object can be created by calling one of the
 <a href="#initialization_functions">Initialization functions</a>.
 
 <h4>Methods</h4>
 
 <ul>
-<a name="conn_close"></a>
-<li> <b><tt>conn:close()</tt></b> <br>
-Closes the connection <tt>conn</tt>.
-
 <a name="conn_add"></a>
 <li> <b><tt>conn:add (distinguished_name, table_of_attributes)</tt></b> <br>
-Add a new entry to the directory.
+Add a new entry to the directory with the given attributes and values.
 
 <a name="conn_compare"></a>
 <li> <b><tt>conn:compare (distinguished_name, attribute, value)</tt></b> <br>
@@ -112,16 +122,39 @@ Compare a value against an entry.
 Delete an entry from the directory.
 
 <a name="conn_modify"></a>
-<li> <b><tt>conn:modify (distinguished_name)</tt></b> <br>
-????
+<li> <b><tt>conn:modify (distinguished_name, ???)</tt></b> <br>
+Modify values of attributes on the given entry.
+...
 
-<a name="conn_modify_dn"></a>
+<a name="conn_rename"></a>
 <li> <b><tt>conn:rename (distinguished_name, new_relative_dn, new_parent)</tt></b> <br>
-Modify the name of the entry.
+Modify the name of the entry
+(<i>i.e. change its <a href="#dn">distinguished name</a></i>).
 
 <a name="conn_search"></a>
-<li> <b><tt>conn:search (distinguished_name)</tt></b> <br>
-????
+<li> <b><tt>conn:search (table_of_search_parameters)</tt></b> <br>
+Execute a search on directory using the given parameters.
+The parameters are described below:
+<ul>
+  <li> <b><tt>attrs</tt></b> a string or a list of attributes names to be retrieved (default is to retrieve all attributes).
+  <li> <b><tt>attrsonly</tt></b> a boolean value that must be <i>false</i> (default) if both attribute names and values are to be retrieved or <i>true</i> if only names are wanted.
+  <li> <b><tt>base</tt></b> The <a href="#dn">distinguished name</a> of the entry at which to start the search.
+  <li> <b><tt>filter</tt></b> A string representing the search filter as described in <a href="http://www.ietf.org/rfc/rfc2254.txt">The String Representation of LDAP Search Filters (RFC 2254)</a>.
+  <li> <b><tt>scope</tt></b> A string indicating the scope of the search.  The valid strings are: "base", "onelevel" and "subtree" (default).
+  <li> <b><tt>sizelimit</tt></b> The maximum number of entries to return (the default is no limit).
+  <li> <b><tt>timeoutmicrosec</tt></b> The timeout in microseconds (default is no timeout).  This number will be combined with <tt>timeoutmicrosec</tt>; if both are zero, no timeout will be used.
+  <li> <b><tt>timeoutsec</tt></b> The timeout in seconds (default is no timeout).  This number will be combined with <tt>timeoutsec</tt>; if both are zero, no timeout will be used.
+</ul>
+The search method will return a <i>search iterator</i> which is a function
+that should be called with just the connection.
+A search iterator is used to get the search result and will return
+the string representing a <a href="#dn">distinguished name</a> and
+a <a href="#attributes">table of attributes</a> as returned by the
+search request.
+
+<a name="conn_close"></a>
+<li> <b><tt>conn:close()</tt></b> <br>
+Closes the connection <tt>conn</tt>.
 
 </ul>
 
@@ -133,13 +166,27 @@ Below is a small sample code displaying the basic use of the library.
 
 <blockquote>
 <pre>
-</pre>
-</blockquote>
+require "lualdap"
 
-And the output of this script should be:
+ld = assert (lualdap.open_simple ("ldap.server", "mydn=manoeljoaquim,ou=people,dc=ldap,dc=world", "mysecurepassword"))
 
-<blockquote>
-<pre>
+for dn, attribs in ld:search { base = "ou=people,dc=ldap,dc=world" } do
+	io.write (string.format ("\t[%s]\n", dn)
+	for name, values in pairs (attribs) do
+		io.write ("["..name.."] : ")
+		if type (values) == "string" then
+			io.write (values)
+		elseif type (values) == "table" then
+			local n = table.getn(values)
+			for i = 1, (n-1) do
+				io.write (values[i]..",")
+			end
+			io.write (values[n])
+		end
+		io.write ("\n")
+	end
+end
+
 </pre>
 </blockquote>
 
@@ -169,7 +216,7 @@ And the output of this script should be:
 <hr>
 <small>
 Last modified on
-Fri May 16 18:55:52 BRT 2003
+Fri Aug 15 16:31:31 BRT 2003
 </small>
 
 </body>
