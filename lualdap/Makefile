@@ -12,7 +12,7 @@ LIB_OPTION= -shared #for Linux
 DLLIB= -ldl
 LUA_LIBS= -L/usr/lib -llua -llualib -lm
 
-COMPAT_DIR= ../compat
+COMPAT_DIR= ../compat/src
 WARN= -O2 -Wall -fPIC -W -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -ansi
 #WARN= -Wall -Wmissing-prototypes -Wmissing-declarations -ansi
 INCS= -I$(LUA_INC) -I$(COMPAT_DIR)
@@ -30,13 +30,13 @@ ZIP_FILE= $(PKG).zip
 SRCS= README Makefile \
 	src/lualdap.c \
 	tests/test.lua \
-	doc/index.html doc/manual.html doc/license.html doc/lualdap.png 
+	doc/us/index.html doc/us/manual.html doc/us/license.html doc/us/lualdap.png 
 
 AR= ar rcu
 RANLIB= ranlib
 
-OBJS= lualdap.o compat-5.1.o
-LIB= lib$T$(VERSION).a
+OBJS= src/lualdap.o $(COMPAT_DIR)/compat-5.1.o
+LIB= src/lib$T$(VERSION).a
 LIBNAME= lib$T$(VERSION)$(LIB_EXT)
 
 dist: dist_dir
@@ -55,19 +55,19 @@ lib: $(LIB)
 	$(AR) $@ $(OBJS)
 	$(RANLIB) $@
 
-dynamic: $(LIBNAME)
-$(LIBNAME): $(OBJS)
-	$(CC) $(CFLAGS) $(LIB_OPTION) -o $(LIBNAME) $(OBJS) $(LIBS) -lldap
+dynamic: src/$(LIBNAME)
+src/$(LIBNAME): $(OBJS)
+	$(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(LIBNAME) $(OBJS) $(LIBS) -lldap
 
-install: lib $(LIBNAME)
+install: lib src/$(LIBNAME)
 	mkdir -p $(LUA_LIBDIR)
-	cp $(LIBNAME) $(LUA_LIBDIR)
+	cp src/$(LIBNAME) $(LUA_LIBDIR)
 	cd $(LUA_LIBDIR); ln -f -s $(LIBNAME) $T$(LIB_EXT)
 
-compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
+$(COMPAT_DIR)/compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
 
 clean:
 	rm -f $(OBJS) $(LIB) $(SO) $(DYLIB) $(DLL) $(TAR_FILE) $(ZIP_FILE)
 
-# $Id: Makefile,v 1.19 2005-04-01 17:01:45 tomas Exp $
+# $Id: Makefile,v 1.20 2005-04-08 18:49:17 tomas Exp $
