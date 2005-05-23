@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.40 2005-04-01 17:01:45 tomas Exp $
+** $Id: lualdap.c,v 1.41 2005-05-23 14:35:11 tuler Exp $
 */
 
 #include <stdlib.h>
@@ -952,7 +952,7 @@ static int lualdap_open_simple (lua_State *L) {
 */
 static void set_info (lua_State *L) {
 	lua_pushliteral (L, "_COPYRIGHT");
-	lua_pushliteral (L, "Copyright (C) 2003-2004 Kepler Project");
+	lua_pushliteral (L, "Copyright (C) 2003-2005 Kepler Project");
 	lua_settable (L, -3);
 	lua_pushliteral (L, "_DESCRIPTION");
 	lua_pushliteral (L, "LuaLDAP is a simple interface from Lua to an LDAP client");
