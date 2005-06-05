@@ -8,6 +8,5 @@ Here goes a small description of the files in the distribution
 	/vc6/*          -- Build files for MS Visual C 6
     Makefile        -- Makefile for Unix systems
     README          -- This file
-    test.lua        -- Overall API test script
 
-$Id: README,v 1.4 2005-03-24 22:35:09 carregal Exp $
+$Id: README,v 1.5 2005-06-05 00:38:22 tomas Exp $
