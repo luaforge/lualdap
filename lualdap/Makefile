@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.22 2005-06-06 20:23:12 tomas Exp $
+# $Id: Makefile,v 1.23 2005-06-06 22:24:02 tomas Exp $
 
 T= lualdap
 V= 1.0
@@ -15,7 +15,7 @@ LIB= src/lib$T-$V.a
 
 dynamic: src/$(LIBNAME)
 src/$(LIBNAME): $(OBJS)
-	$(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(LIBNAME) $(OBJS)
+	export MACOSX_DEPLOYMENT_TARGET="10.3"; $(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(LIBNAME) $(OBJS)
 
 lib: $(LIB)
  $(LIB): $(OBJS)
