@@ -1,9 +1,10 @@
-# $Id: Makefile,v 1.21 2005-06-05 00:38:22 tomas Exp $
+# $Id: Makefile,v 1.22 2005-06-06 20:23:12 tomas Exp $
 
 T= lualdap
 V= 1.0
+CONFIG= ./config
 
-include ./config
+include $(CONFIG)
 
 AR= ar rcu
 RANLIB= ranlib
