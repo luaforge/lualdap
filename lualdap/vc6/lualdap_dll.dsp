@@ -56,7 +56,7 @@ LINK32=link.exe
 # ADD LINK32 lua50.lib wsock32.lib oldap32.lib olber32.lib libsasl.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386 /out:"../bin/vc6/lualdap.dll" /libpath:"../../external-src/lua50/lib/dll" /libpath:"../../external-src/openldap-2.1.30/Release" /libpath:"../../external-src/cyrus-sasl-1.5.28/win32/libsasl/Release"
 # Begin Special Build Tool
 SOURCE="$(InputPath)"
-PostBuild_Cmds=cd ../bin/vc6	zip.exe lualdap-1.0-win32.zip lualdap.dll
+PostBuild_Cmds=cd ../bin/vc6	zip.exe lualdap-1.0-win32.zip lualdap.dll	zip.exe -j lualdap-1.0-win32.zip ../../../external-src/cyrus-sasl-1.5.28/win32/libsasl/Release/libsasl.dll
 # End Special Build Tool
 
 !ELSEIF  "$(CFG)" == "lualdap_dll - Win32 Debug"
