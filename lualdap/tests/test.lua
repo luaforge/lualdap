@@ -6,7 +6,7 @@
 -- renamed and deleted at the end.
 --
 -- See Copyright Notice in license.html
--- $Id: test.lua,v 1.12 2005-02-23 22:39:26 tomas Exp $
+-- $Id: test.lua,v 1.13 2005-06-07 17:06:30 tomas Exp $
 ---------------------------------------------------------------------
 
 --
@@ -107,7 +107,14 @@ function basic_test ()
 	-- trying to connect to an invalid host.
 	assert2 (nil, lualdap.open_simple ("unknown-server"), "this should be an error")
 	-- reopen the connection.
-	LD = CONN_OK (lualdap.open_simple (HOSTNAME, WHO, PASSWORD, true))
+	-- first, try using TLS
+	local ok = lualdap.open_simple (HOSTNAME, WHO, PASSWORD, true)
+	if not ok then
+		-- second, try without TLS
+		io.write ("\nWarning!  Couldn't connect with TLS.  Trying again without it.")
+		ok = lualdap.open_simple (HOSTNAME, WHO, PASSWORD, false)
+	end
+	LD = CONN_OK (ok)
 	CLOSED_LD = ld
 	collectgarbage()
 end
