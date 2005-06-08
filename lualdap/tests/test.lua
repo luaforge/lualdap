@@ -6,7 +6,7 @@
 -- renamed and deleted at the end.
 --
 -- See Copyright Notice in license.html
--- $Id: test.lua,v 1.13 2005-06-07 17:06:30 tomas Exp $
+-- $Id: test.lua,v 1.14 2005-06-08 17:22:46 tomas Exp $
 ---------------------------------------------------------------------
 
 --
@@ -53,15 +53,16 @@ end
 -- checks for a value and throw an error if it is not the expected.
 ---------------------------------------------------------------------
 function assert2 (expected, value, msg)
-io.write('.')
 	if not msg then
 		msg = ''
 	else
 		msg = tostring(msg)..'\n'
 	end
-	return assert (value == expected,
+	local ret = assert (value == expected,
 		msg.."wrong value (["..tostring(value).."] instead of "..
 		tostring(expected)..")")
+	io.write('.')
+	return ret
 end
 
 ---------------------------------------------------------------------
@@ -84,7 +85,10 @@ function test_object (obj, objmethods)
 	return obj
 end
 
-CONN_OK = function (obj)
+CONN_OK = function (obj, err)
+	if obj == nil then
+		error (err, 2)
+	end
 	return test_object (obj, { "close", "add", "compare", "delete", "modify", "rename", "search", })
 end
 
@@ -124,11 +128,11 @@ end
 -- checks return value which should be a function AND also its return value.
 ---------------------------------------------------------------------
 function check_future (ret, method, ...)
-io.write('.')
 	local ok, f = pcall (method, unpack (arg))
 	assert (ok, f)
 	assert2 ("function", type(f))
 	assert2 (ret, f())
+	io.write('.')
 end
 
 
