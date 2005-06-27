@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.26 2005-06-24 01:50:56 tomas Exp $
+# $Id: Makefile,v 1.27 2005-06-27 17:07:14 tomas Exp $
 
 T= lualdap
 V= 1.0
@@ -18,7 +18,7 @@ $(COMPAT_DIR)/compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 install: src/$(LIBNAME)
 	mkdir -p $(LUA_LIBDIR)
 	cp src/$(LIBNAME) $(LUA_LIBDIR)
-	cd $(LUA_LIBDIR); ln -f -h -s $(LIBNAME) $T.so
+	cd $(LUA_LIBDIR); ln -f -s $(LIBNAME) $T.so
 
 clean:
 	rm -f $(OBJS) src/$(LIBNAME)
