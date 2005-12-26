@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.27 2005-06-27 17:07:14 tomas Exp $
+# $Id: Makefile,v 1.28 2005-12-26 21:26:03 tomas Exp $
 
 T= lualdap
 V= 1.0
@@ -10,7 +10,7 @@ OBJS= src/lualdap.o $(COMPAT_DIR)/compat-5.1.o
 
 
 src/$(LIBNAME): $(OBJS)
-	export MACOSX_DEPLOYMENT_TARGET="10.3"; $(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(LIBNAME) $(OBJS) -lldap
+	export MACOSX_DEPLOYMENT_TARGET="10.3"; $(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(LIBNAME) $(OBJS) $(OPENLDAP_LIB)
 
 $(COMPAT_DIR)/compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
 	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
