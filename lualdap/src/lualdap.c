@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.42 2005-06-20 22:13:18 tomas Exp $
+** $Id: lualdap.c,v 1.43 2005-12-26 18:20:34 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -958,7 +958,7 @@ static void set_info (lua_State *L) {
 	lua_pushliteral (L, "LuaLDAP is a simple interface from Lua to an LDAP client");
 	lua_settable (L, -3);
 	lua_pushliteral (L, "_VERSION");
-	lua_pushliteral (L, "LuaLDAP 1.0");
+	lua_pushliteral (L, "LuaLDAP 1.0.1");
 	lua_settable (L, -3);
 }
 
