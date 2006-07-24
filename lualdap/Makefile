@@ -1,12 +1,16 @@
-# $Id: Makefile,v 1.28 2005-12-26 21:26:03 tomas Exp $
+# $Id: Makefile,v 1.29 2006-07-24 01:42:06 tomas Exp $
 
 T= lualdap
-V= 1.0
+V= 1.0.2
 CONFIG= ./config
 
 include $(CONFIG)
 
-OBJS= src/lualdap.o $(COMPAT_DIR)/compat-5.1.o
+ifeq "$(LUA_VERSION_NUM)" "500"
+COMPAT_O= $(COMPAT_DIR)/compat-5.1.o
+endif
+
+OBJS= src/lualdap.o $(COMPAT_O)
 
 
 src/$(LIBNAME): $(OBJS)
