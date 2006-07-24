@@ -1,4 +1,4 @@
-#!/usr/local/bin/lua
+#!/usr/local/bin/lua5.1
 ---------------------------------------------------------------------
 -- LuaLDAP test file.
 -- This test will create a copy of an existing entry on the
@@ -6,7 +6,7 @@
 -- renamed and deleted at the end.
 --
 -- See Copyright Notice in license.html
--- $Id: test.lua,v 1.14 2005-06-08 17:22:46 tomas Exp $
+-- $Id: test.lua,v 1.15 2006-07-24 01:36:51 tomas Exp $
 ---------------------------------------------------------------------
 
 --

@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.44 2006-04-04 20:11:51 carregal Exp $
+** $Id: lualdap.c,v 1.45 2006-07-24 01:36:51 tomas Exp $
 */
 
 #include <stdlib.h>
@@ -16,8 +16,9 @@
 
 #include "lua.h"
 #include "lauxlib.h"
+#if ! defined (LUA_VERSION_NUM) || LUA_VERSION_NUM < 501
 #include "compat-5.1.h"
-
+#endif
 
 #define LUALDAP_PREFIX "LuaLDAP: "
 #define LUALDAP_TABLENAME "lualdap"
@@ -958,7 +959,7 @@ static void set_info (lua_State *L) {
 	lua_pushliteral (L, "LuaLDAP is a simple interface from Lua to an LDAP client");
 	lua_settable (L, -3);
 	lua_pushliteral (L, "_VERSION");
-	lua_pushliteral (L, "LuaLDAP 1.0.1");
+	lua_pushliteral (L, "LuaLDAP 1.0.2");
 	lua_settable (L, -3);
 }
 
