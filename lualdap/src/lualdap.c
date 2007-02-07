@@ -1,7 +1,7 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.45 2006-07-24 01:36:51 tomas Exp $
+** $Id: lualdap.c,v 1.46 2007-02-07 15:05:48 godinho Exp $
 */
 
 #include <stdlib.h>
@@ -463,7 +463,7 @@ static int lualdap_close (lua_State *L) {
 */
 static int lualdap_add (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_check_string (L, 2);
+	const char *dn = luaL_checkstring (L, 2);
 	attrs_data attrs;
 	int rc, msgid;
 	A_init (&attrs);
@@ -485,11 +485,11 @@ static int lualdap_add (lua_State *L) {
 */
 static int lualdap_compare (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_check_string (L, 2);
-	const char *attr = luaL_check_string (L, 3);
+	const char *dn = luaL_checkstring (L, 2);
+	const char *attr = luaL_checkstring (L, 3);
 	BerValue bvalue;
 	int rc, msgid;
-	bvalue.bv_val = (char *)luaL_check_string (L, 4);
+	bvalue.bv_val = (char *)luaL_checkstring (L, 4);
 	bvalue.bv_len = lua_strlen (L, 4);
 	rc = ldap_compare_ext (conn->ld, dn, attr, &bvalue, NULL, NULL, &msgid);
 	return create_future (L, rc, 1, msgid, LDAP_RES_COMPARE);
@@ -504,7 +504,7 @@ static int lualdap_compare (lua_State *L) {
 */
 static int lualdap_delete (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_check_string (L, 2);
+	const char *dn = luaL_checkstring (L, 2);
 	int rc, msgid;
 	rc = ldap_delete_ext (conn->ld, dn, NULL, NULL, &msgid);
 	return create_future (L, rc, 1, msgid, LDAP_RES_DELETE);
@@ -539,7 +539,7 @@ static int op2code (const char *s) {
 */
 static int lualdap_modify (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_check_string (L, 2);
+	const char *dn = luaL_checkstring (L, 2);
 	attrs_data attrs;
 	int rc, msgid, param = 3;
 	A_init (&attrs);
@@ -565,8 +565,8 @@ static int lualdap_modify (lua_State *L) {
 */
 static int lualdap_rename (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_check_string (L, 2);
-	const char *rdn = luaL_check_string (L, 3);
+	const char *dn = luaL_checkstring (L, 2);
+	const char *rdn = luaL_checkstring (L, 3);
 	const char *par = luaL_optlstring (L, 4, NULL, NULL);
 	const int del = luaL_optnumber (L, 5, 0);
 	int msgid;
@@ -915,7 +915,7 @@ static int lualdap_createmeta (lua_State *L) {
 ** @return #1 Userdata with connection structure.
 */
 static int lualdap_open_simple (lua_State *L) {
-	const char *host = luaL_check_string (L, 1);
+	const char *host = luaL_checkstring (L, 1);
 	const char *who = luaL_optstring (L, 2, NULL);
 	const char *password = luaL_optstring (L, 3, NULL);
 	int use_tls = lua_toboolean (L, 4);
