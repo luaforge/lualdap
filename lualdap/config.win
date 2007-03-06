@@ -1,0 +1,21 @@
+# Installation directories
+# System's libraries directory (where binary libraries are installed)
+LUA_LIBDIR= e:\leonardo\dev\kepler1.1\lua511
+# Lua includes directory
+LUA_INC= e:\leonardo\dev\kepler1.1\lua511\include
+# Lua library
+LUA_LIB= e:\leonardo\dev\kepler1.1\lua511\lua5.1.lib
+# OpenLDAP includes directory
+OPENLDAP_INC= e:\leonardo\dev\openldap-2.1.17_bin\include
+# OpenLDAP library
+OPENLDAP_LIB= e:\leonardo\dev\openldap-2.1.17_bin\DLLRelease\openldap.lib
+
+
+LIBNAME= $T.dll
+
+# Compilation directives
+WARN= /O2
+INCS= /I$(LUA_INC) /I$(OPENLDAP_INC)
+CFLAGS= $(WARN) $(INCS) -DWIN32
+CC= cl
+
