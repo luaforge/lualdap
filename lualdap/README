@@ -7,6 +7,9 @@ Here goes a small description of the files in the distribution
 	/tests/*        -- Test files
 	/vc6/*          -- Build files for MS Visual C 6
     Makefile        -- Makefile for Unix systems
+    config          -- Configurations to build on Unix systems
+    Makefile.win    -- Makefile for Windows systens with MS Visual C 8
+    config.win      -- Configurations to build on Windows systems
     README          -- This file
 
-$Id: README,v 1.5 2005-06-05 00:38:22 tomas Exp $
+$Id: README,v 1.6 2007-03-13 22:24:16 godinho Exp $
