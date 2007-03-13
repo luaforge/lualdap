@@ -1,5 +1,5 @@
 T= lualdap
-V= 1.0.2
+V= 1.1.0
 
 include config.win
 
@@ -12,7 +12,7 @@ lib: src\$(LIBNAME)
 	$(CC) /c /Fo$@ $(CFLAGS) $<
 
 src\$(LIBNAME): $(OBJS)
-	link /dll /def:src\$T.def /out:src\$(LIBNAME) $(OBJS) $(LUA_LIB) $(OPENLDAP_LIB)
+	link /dll /def:src\$T.def /out:src\$(LIBNAME) $(OBJS) $(LUA_LIB) $(LDAP_LIB)
 
 install: src\$(LIBNAME)
 	IF NOT EXIST $(LUA_LIBDIR) mkdir $(LUA_LIBDIR)

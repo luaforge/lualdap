@@ -1,7 +1,7 @@
-# $Id: Makefile,v 1.29 2006-07-24 01:42:06 tomas Exp $
+# $Id: Makefile,v 1.30 2007-03-13 22:07:33 godinho Exp $
 
 T= lualdap
-V= 1.0.2
+V= 1.1.0
 CONFIG= ./config
 
 include $(CONFIG)

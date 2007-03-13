@@ -1,23 +1,37 @@
 /*
 ** LuaLDAP
 ** See Copyright Notice in license.html
-** $Id: lualdap.c,v 1.46 2007-02-07 15:05:48 godinho Exp $
+** $Id: lualdap.c,v 1.47 2007-03-13 22:07:33 godinho Exp $
 */
 
 #include <stdlib.h>
 #include <string.h>
+
 #ifdef WIN32
 #include <Winsock2.h>
 #else
 #include <sys/time.h>
 #endif
 
+#ifdef WINLDAP
+#include "open2winldap.h"
+#else
 #include "ldap.h"
+#endif
 
 #include "lua.h"
 #include "lauxlib.h"
 #if ! defined (LUA_VERSION_NUM) || LUA_VERSION_NUM < 501
 #include "compat-5.1.h"
+#endif
+
+#ifdef WINLDAPAPI
+#define timeval l_timeval
+typedef ULONG ldap_int_t;
+typedef PCHAR ldap_pchar_t;
+#else
+typedef int ldap_int_t;
+typedef const char * ldap_pchar_t;
 #endif
 
 #define LUALDAP_PREFIX "LuaLDAP: "
@@ -426,7 +440,7 @@ static int result_message (lua_State *L) {
 /*
 ** Push a function to process the LDAP result.
 */
-static int create_future (lua_State *L, int rc, int conn, int msgid, int code) {
+static int create_future (lua_State *L, ldap_int_t rc, int conn, ldap_int_t msgid, int code) {
 	if (rc != LDAP_SUCCESS)
 		return faildirect (L, ldap_err2string (rc));
 	lua_pushvalue (L, conn); /* push connection as #1 upvalue */
@@ -463,9 +477,9 @@ static int lualdap_close (lua_State *L) {
 */
 static int lualdap_add (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_checkstring (L, 2);
+	ldap_pchar_t dn = (ldap_pchar_t) luaL_checkstring (L, 2);
 	attrs_data attrs;
-	int rc, msgid;
+	ldap_int_t rc, msgid;
 	A_init (&attrs);
 	if (lua_istable (L, 3))
 		A_tab2mod (L, &attrs, 3, LUALDAP_MOD_ADD);
@@ -485,10 +499,10 @@ static int lualdap_add (lua_State *L) {
 */
 static int lualdap_compare (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_checkstring (L, 2);
-	const char *attr = luaL_checkstring (L, 3);
+	ldap_pchar_t dn = (ldap_pchar_t) luaL_checkstring (L, 2);
+	ldap_pchar_t attr = (ldap_pchar_t) luaL_checkstring (L, 3);
 	BerValue bvalue;
-	int rc, msgid;
+	ldap_int_t rc, msgid;
 	bvalue.bv_val = (char *)luaL_checkstring (L, 4);
 	bvalue.bv_len = lua_strlen (L, 4);
 	rc = ldap_compare_ext (conn->ld, dn, attr, &bvalue, NULL, NULL, &msgid);
@@ -504,8 +518,8 @@ static int lualdap_compare (lua_State *L) {
 */
 static int lualdap_delete (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_checkstring (L, 2);
-	int rc, msgid;
+	ldap_pchar_t dn = (ldap_pchar_t) luaL_checkstring (L, 2);
+	ldap_int_t rc, msgid;
 	rc = ldap_delete_ext (conn->ld, dn, NULL, NULL, &msgid);
 	return create_future (L, rc, 1, msgid, LDAP_RES_DELETE);
 }
@@ -539,9 +553,10 @@ static int op2code (const char *s) {
 */
 static int lualdap_modify (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_checkstring (L, 2);
+	ldap_pchar_t dn = (ldap_pchar_t) luaL_checkstring (L, 2);
 	attrs_data attrs;
-	int rc, msgid, param = 3;
+	ldap_int_t rc, msgid;
+	int param = 3;
 	A_init (&attrs);
 	while (lua_istable (L, param)) {
 		int op;
@@ -565,12 +580,12 @@ static int lualdap_modify (lua_State *L) {
 */
 static int lualdap_rename (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *dn = luaL_checkstring (L, 2);
-	const char *rdn = luaL_checkstring (L, 3);
-	const char *par = luaL_optlstring (L, 4, NULL, NULL);
+	ldap_pchar_t dn = (ldap_pchar_t) luaL_checkstring (L, 2);
+	ldap_pchar_t rdn = (ldap_pchar_t) luaL_checkstring (L, 3);
+	ldap_pchar_t par = (ldap_pchar_t) luaL_optlstring (L, 4, NULL, NULL);
 	const int del = luaL_optnumber (L, 5, 0);
-	int msgid;
-	int rc = ldap_rename (conn->ld, dn, rdn, par, del, NULL, NULL, &msgid);
+	ldap_int_t msgid;
+	ldap_int_t rc = ldap_rename (conn->ld, dn, rdn, par, del, NULL, NULL, &msgid);
 	return create_future (L, rc, 1, msgid, LDAP_RES_MODDN);
 }
 
@@ -679,6 +694,8 @@ static int next_message (lua_State *L) {
 				ret = 2; /* two return values */
 				break;
 			}
+/*No reference to LDAP_RES_SEARCH_REFERENCE on MSDN. Maybe there is a replacement to it?*/
+#ifdef LDAP_RES_SEARCH_REFERENCE
 			case LDAP_RES_SEARCH_REFERENCE: {
 				LDAPMessage *ref = ldap_first_reference (conn->ld, msg);
 				push_dn (L, conn->ld, ref); /* is this supposed to work? */
@@ -686,6 +703,7 @@ static int next_message (lua_State *L) {
 				ret = 2; /* two return values */
 				break;
 			}
+#endif
 			case LDAP_RES_SEARCH_RESULT:
 				/* close search object to avoid reuse */
 				search_close (L, search);
@@ -788,7 +806,8 @@ static struct timeval *get_timeout_param (lua_State *L, struct timeval *st) {
 */
 static int lualdap_search (lua_State *L) {
 	conn_data *conn = getconnection (L);
-	const char *base, *filter;
+	ldap_pchar_t base;
+	ldap_pchar_t filter;
 	char *attrs[LUALDAP_MAX_ATTRS];
 	int scope, attrsonly, msgid, rc, sizelimit;
 	struct timeval st, *timeout;
@@ -799,8 +818,8 @@ static int lualdap_search (lua_State *L) {
 		return 2;
 	/* get other parameters */
 	attrsonly = booltabparam (L, "attrsonly", 0);
-	base = strtabparam (L, "base", NULL);
-	filter = strtabparam (L, "filter", NULL);
+	base = (ldap_pchar_t) strtabparam (L, "base", NULL);
+	filter = (ldap_pchar_t) strtabparam (L, "filter", NULL);
 	scope = string2scope (L, strtabparam (L, "scope", NULL));
 	sizelimit = longtabparam (L, "sizelimit", LDAP_NO_LIMIT);
 	timeout = get_timeout_param (L, &st);
@@ -915,8 +934,8 @@ static int lualdap_createmeta (lua_State *L) {
 ** @return #1 Userdata with connection structure.
 */
 static int lualdap_open_simple (lua_State *L) {
-	const char *host = luaL_checkstring (L, 1);
-	const char *who = luaL_optstring (L, 2, NULL);
+	ldap_pchar_t host = (ldap_pchar_t) luaL_checkstring (L, 1);
+	ldap_pchar_t who = (ldap_pchar_t) luaL_optstring (L, 2, NULL);
 	const char *password = luaL_optstring (L, 3, NULL);
 	int use_tls = lua_toboolean (L, 4);
 	conn_data *conn = (conn_data *)lua_newuserdata (L, sizeof(conn_data));

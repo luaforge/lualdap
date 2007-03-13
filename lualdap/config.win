@@ -1,21 +1,24 @@
 # Installation directories
 # System's libraries directory (where binary libraries are installed)
 LUA_LIBDIR= e:\leonardo\dev\kepler1.1\lua511
+
 # Lua includes directory
+#LDAP_INC= c:\dev\openldap-2.1.17_bin\include
 LUA_INC= e:\leonardo\dev\kepler1.1\lua511\include
+
 # Lua library
 LUA_LIB= e:\leonardo\dev\kepler1.1\lua511\lua5.1.lib
-# OpenLDAP includes directory
-OPENLDAP_INC= e:\leonardo\dev\openldap-2.1.17_bin\include
-# OpenLDAP library
-OPENLDAP_LIB= e:\leonardo\dev\openldap-2.1.17_bin\DLLRelease\openldap.lib
 
+# LDAP library
+#LDAP_LIB= c:\dev\openldap-2.1.17_bin\DLLRelease\openldap.lib
+LDAP_LIB= Wldap32.lib
 
 LIBNAME= $T.dll
 
 # Compilation directives
 WARN= /O2
-INCS= /I$(LUA_INC) /I$(OPENLDAP_INC)
-CFLAGS= $(WARN) $(INCS) -DWIN32
+INCS= /I$(LUA_INC)
+# CFLAGS should include -DWINLDAP to use native windows library instead of OpenLDAP
+CFLAGS= $(WARN) $(INCS) -DWIN32 -DWINLDAP
 CC= cl
 
