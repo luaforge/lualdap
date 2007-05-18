@@ -1,6 +1,6 @@
 # Installation directories
 # System's libraries directory (where binary libraries are installed)
-LUA_LIBDIR= c:\lua5.1\lib
+LUA_LIBDIR= c:\lua5.1
 
 # Lua includes directory
 LUA_INC= c:\lua5.1\include
@@ -9,7 +9,7 @@ LUA_INC= c:\lua5.1\include
 #LDAP_INC=/IC:\openldap-2.1.17_bin\include
 
 # Lua library
-LUA_LIB= c:\lua5.1\bin\lua5.1.lib
+LUA_LIB= c:\lua5.1\lua5.1.lib
 
 # LDAP library
 #LDAP_LIB= C:\openldap-2.1.17_bin\DLLRelease\openldap.lib
